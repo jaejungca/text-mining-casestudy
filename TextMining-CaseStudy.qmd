@@ -155,7 +155,6 @@ In addition, we use `RColorbrewer` and `ggthemes` to allow us to use a non-stand
 
 ```{r}
 #| label: box-plot-rating
-
 Airline_Reviews_Leviev %>%
   mutate(Airline = fct_reorder(Airline, overall_rating)) |>
   ggplot(aes(x = Airline, y = overall_rating, fill = Airline)) +
@@ -180,7 +179,6 @@ To better understand and inspect the mean ratings we can also rely on a barchart
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: bar-plot-mean-rating
-
 meanrating.airline = Airline_Reviews_Leviev %>%
   group_by(Airline) %>%
   summarise(MeanRating = mean(overall_rating, na.rm = TRUE))
@@ -200,7 +198,6 @@ meanrating.airline %>%
   coord_flip() +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90))
-
 ```
 
 Both, the boxplots as well as the bar chart, indicate that we have enough variation in our reviews to continue with our analysis. We can thus start with trying to understand how favorably (or unfavorably) passengers write about an airline.
@@ -229,13 +226,12 @@ In R the **EmoLex NRC dictionary** is implemented in various packages. We recomm
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: unnest-review-text
-
 Airline_Reviews_Leviev$ReviewNumb = 1:24391
 AirlineReviews_Words <- Airline_Reviews_Leviev %>%
   mutate(ReviewNumb = 1:24391) %>%
   unnest_tokens(word, review_text)
 
-AirlineReviews_Words |> 
+AirlineReviews_Words |>
   select(ReviewNumb, word)
 ```
 
@@ -245,7 +241,6 @@ Looking at the created AirlineReviews_Words dataframe, you will quickly realize 
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: remove-stopwords
-
 AirlineReviews_Words <- AirlineReviews_Words %>%
   anti_join(stop_words, by = "word")
 ```
@@ -256,7 +251,6 @@ Via anti_join we simply tell R to look up all words in the stop_words list and d
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: nrc-sentiment
-
 #install.packages("textdata")
 library(textdata)
 nrc <- lexicon_nrc(dir = getwd())
@@ -275,7 +269,6 @@ head(AirlineReviews_Sentiment)
 
 ```{r}
 #| label: mean-emotion-value
-
 AirlineReviews_Sentiment |> glimpse()
 
 AirlineReviews_Sentiment_Means = AirlineReviews_Sentiment %>%
@@ -303,7 +296,6 @@ Subsequently, we can now take this data frame to plot the values for each airlin
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: plot-sentiments
-
 # Negative sentiments
 
 AirlineReviews_NegMeansWide <- AirlineReviews_Sentiment_Means %>%
@@ -312,7 +304,7 @@ AirlineReviews_NegMeansWide <- AirlineReviews_Sentiment_Means %>%
 
 
 AirlineReviews_NegMeansWide %>%
-  mutate(Airline = fct_reorder(Airline, value)) |> 
+  mutate(Airline = fct_reorder(Airline, value)) |>
   ggplot(aes(x = Airline, y = value, fill = Airline)) +
   geom_col() +
   #geom_jitter(width = 0.05, alpha = 0.05) +
@@ -337,7 +329,7 @@ AirlineReviews_PosMeansWide <- AirlineReviews_Sentiment_Means %>%
   gather(key = "variable", value = "value", -Airline)
 
 AirlineReviews_PosMeansWide %>%
-  mutate(Airline = fct_reorder(Airline, value)) |> 
+  mutate(Airline = fct_reorder(Airline, value)) |>
   ggplot(aes(x = Airline, y = value, fill = Airline)) +
   scale_fill_tableau(palette = "Tableau 20") +
   geom_col() +
@@ -386,7 +378,6 @@ We can also use the emotion information to see how different airlines are from e
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: emotion-distance-calcuation
-
 Airlines_MeanEmotions = AirlineReviews_Sentiment_Means[, 1:10]
 
 EmotionDistance_Airlines = as.matrix(dist(Airlines_MeanEmotions))
@@ -398,8 +389,7 @@ rownames(EmotionDistance_Airlines) <- AirlineReviews_Sentiment_Means$Airline
 
 ```{r}
 #| label: plot-emotional-distance
-
-MDS_Emotions <- cmdscale(EmotionDistance_Airlines, eig = TRUE, k = 2) #Classical multidimensional scaling (MDS) 
+MDS_Emotions <- cmdscale(EmotionDistance_Airlines, eig = TRUE, k = 2) #Classical multidimensional scaling (MDS)
 
 x <- MDS_Emotions$points[, 1]
 y <- MDS_Emotions$points[, 2]
@@ -466,7 +456,6 @@ While basic dictionaries such as LIWC and NRC provide a quick and reliable way t
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: vader-example
-
 Clear_Review = "It was a shitty holiday with a lot of rain and a bad airline"
 Negations_Review = "I did not like the airline there was no good service and no one cared about us."
 
@@ -485,7 +474,6 @@ We can now use the following code to calculate the sentiment of each sentence.
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: vader-sentiment
-
 library(vader)
 
 # Use get_vader() to calculate the valence of a single text document.
@@ -538,7 +526,6 @@ If we now compare the compound results in the VADER dataframe, we can see, that 
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: vader-data-frame
-
 VADER = bind_rows(
   Sentiment_Clear_Review,
   Sentiment_Negations_Review,
@@ -581,7 +568,6 @@ Given that we have already overall rating scores, we can follow the latter appro
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: build-training-data
-
 Negative_Reviews = Airline_Reviews_Leviev %>% filter(overall_rating < 2)
 Positive_Reviews = Airline_Reviews_Leviev %>% filter(overall_rating > 8)
 
@@ -622,7 +608,6 @@ At last, we use `prop.table` to show us the distribution of positive and negativ
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: data-prepping
-
 # tm_map(): Interface to apply transformation functions (also denoted as mappings) to corpora.
 
 corpus = Corpus(VectorSource(BottomUpDF$text))
@@ -655,7 +640,6 @@ We rely here on an 80/20 split but feel free to try out other compositions.
 
 ```{r eval=TRUE, echo=FALSE}
 #| label: split-test-dataset-again
-
 library(caTools) # for splitting
 
 set.seed(100)
@@ -690,7 +674,6 @@ First, we use the `predict()` function to predict the sentiment scores of our tr
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: predicting-with-test-data
-
 predictRF = predict(RF_model, newdata = testSparse)
 table(testSparse$sentiment, predictRF)
 ```
@@ -715,14 +698,12 @@ We can access the package and start building our model with the following code.
 
 ```{r eval=TRUE, echo=FALSE}
 #| label: text2vec-sentiment-package
-
 library(text2vec)
 library(data.table)
 ```
 
 ```{r}
 #| label: text2vec-sentiment-analysis
-
 # Train and Test Data
 
 Negative_Reviews = Airline_Reviews_Leviev %>% filter(overall_rating < 2)
@@ -765,7 +746,6 @@ raw text → tolower → word_tokenizer → vocabulary → vectorizer → DTM
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: pre-processing
-
 # define preprocessing function and tokenization function
 prep_fun = tolower
 tok_fun = word_tokenizer
@@ -813,7 +793,6 @@ For example:
 
 ```{r}
 #| label: build-dtm
-
 # Build the Document-Term Matrix (DTM)
 dtm_train = create_dtm(it_train, vectorizer)
 ```
@@ -826,7 +805,6 @@ The other values in the function are *tuning parameters*, which can be ignored f
 
 ```{r eval=TRUE, echo=FALSE}
 #| label: training-logistic-lasso
-
 library(glmnet)
 
 NFOLDS = 4
@@ -834,15 +812,14 @@ glmnet_classifier = cv.glmnet(
   x = dtm_train,
   y = train[['sentiment']],
   family = 'binomial', # Logistic regression for binary classification
-  alpha = 1, # Lasso regularization 
+  alpha = 1, # Lasso regularization
   type.measure = "auc", #Uses AUC (Area Under the ROC Curve) for evaluation
   nfolds = NFOLDS, # Number of cross-validation folds
   thresh = 1e-3, # Convergence threshold — stops when improvement is < 0.001
-  maxit = 1e3    # Maximum 1000 iterations to prevent infinite loops
+  maxit = 1e3 # Maximum 1000 iterations to prevent infinite loops
 )
 
 print(paste("max AUC =", round(max(glmnet_classifier$cvm), 4)))
-
 ```
 
 ### Output Interpretation
@@ -917,7 +894,6 @@ To assess the accuracy of our model, we can again make a prediction for our test
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: test_accuracy
-
 it_test = tok_fun(prep_fun(test$text))
 it_test = itoken(it_test, ids = test$id, progressbar = FALSE)
 
@@ -959,7 +935,6 @@ We need to again apply the same pre-processing to the new text as we did to our 
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: new-texts
-
 ## Make Predictions for New Headlines
 NewTextData = c(
   "The service was good, we had a flight without any difficulties, food was delicious, pilots were super informative",
@@ -1010,13 +985,14 @@ Topic Models such as *Latent Dirichlet Allocation* (LDA) or *Structural Topic Mo
 
 R features multiple packages, which enable us to conduct a topic model. We recommend using the `topicmodel` package, as it offers the most versatile but still very approachable setup and has many useful functions integrated, that e.g. allow to parallelize processes, which will come handy, in case you face larger data sets and require to estimate multiple LDA models at the same time. 
 
-We first re-use the dataframe that only contains negative reviews (and which we constructed for the word2vec sentiment analysis). This will allow us to first focus on which topics consumers commonly dislike when flying and to then later see, which airlines face which topics/complaints most. We again first create a Corpus that then contains the textual data from the reviews. We continue to apply the common text cleaning procedures that we have encountered before. Now the corpus is ready to enter the LDA.
+We first re-use the dataframe that only contains **negative reviews** (and which we constructed for the word2vec sentiment analysis). This will allow us to first focus on which topics consumers commonly dislike when flying and to then later see, which airlines face which topics/complaints most. 
+
+We again first create a Corpus that then contains the textual data from the reviews. We continue to apply the common text cleaning procedures that we have encountered before. Now the corpus is ready to enter the LDA.
 
 ## Load packages
 
 ```{r eval=TRUE, echo=FALSE}
 #| label: load-packages
-
 #install.packages("ldatuning"): doesn't work since it has been removed from Cran.
 
 # install dependecies first
@@ -1039,7 +1015,6 @@ library(tm)
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: negative-reviews-prep-lda
-
 ## Topic Models for Negative Reviews
 Overall_corpus_Negative <- VCorpus(VectorSource(Negative_Reviews$review_text))
 
@@ -1088,7 +1063,6 @@ To speed up the process, the same function also allows us to parallelize the est
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: ldatuning-topics
-
 ## Identify Topic Number
 
 negative.result <- FindTopicsNumber(
@@ -1198,7 +1172,7 @@ top_terms_negative %>%
 Looking at above's plots what kind of topics do you see here? Can you come up with meaningful topic names?
 :::
 
-# Airline Insights
+# Airline Insights for Negative Reviews
 
 ## Assignment of a topic to a Review
 
@@ -1245,7 +1219,6 @@ The cutoff value for topic probability is typically set based on the desired sen
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: assign-topics-to-a-review
-
 CutoffDf.Negative <- Negative_Reviews.wlables %>%
   filter(
     Topic1 >= 0.25 |
@@ -1273,8 +1246,7 @@ CutoffDf.Negative |> glimpse()
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: counting-topics-for-review
-
-# Counting 
+# Counting
 TopicCount.Negative <- CutoffDf.Negative %>%
   group_by(Airline) %>%
   summarize(
@@ -1296,7 +1268,6 @@ TopicCount.Negative
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: calculate-topic-share
-
 TopicCount.Negative$sum = rowSums(TopicCount.Negative[, 2:9])
 
 WeightedTopics.Negative = data.frame(
@@ -1332,7 +1303,7 @@ WeightedTopicsName.Negative$Airline <- NULL
 
 WeightedTopicsNameDF.Negative <- as.data.frame(t(WeightedTopicsName.Negative))
 
-WeightedTopicsNameDF.Negative 
+WeightedTopicsNameDF.Negative
 ```
 ::: callout-important
 
@@ -1347,7 +1318,6 @@ There are many ways to visualize the shares (e.g. barcharts), but we want to end
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: visual-circlize
-
 library(circlize)
 
 FinalCircDF.Negative = as.matrix(WeightedTopicsNameDF.Negative)
@@ -1357,8 +1327,7 @@ testcirc.Negative = data.frame(
     rownames(FinalCircDF.Negative),
     times = ncol(FinalCircDF.Negative)
   ),
-  to = rep(colnames(FinalCircDF.Negative), 
-           each = nrow(FinalCircDF.Negative)),
+  to = rep(colnames(FinalCircDF.Negative), each = nrow(FinalCircDF.Negative)),
   value = as.vector(FinalCircDF.Negative),
   stringsAsFactors = FALSE
 )
@@ -1394,6 +1363,18 @@ circos.clear()
 par(cex = .6)
 chordDiagram(testcirc.Negative, grid.col = grid.col.negative, big.gap = 15)
 ```
+
+::: callout-important
+### **Question 7**
+What insights do you have from the chord diagram about airlines and negative topics?
+:::
+
+# Airline Insights for Positive Reviews
+
+::: callout-note
+### **Tasks**
+For this section, repeat the topic modeling procedure for positive reviews this time. Answer Question 4 through Question 7 again for the positive reviews.
+:::
 
 # Saving and Loading Files
 
