@@ -1,0 +1,6 @@
+*.Rmd
+TextMining-CaseStudy-PositiveReview.qmd
+.Rhistory
+.RData
+/nrc
+/.Rproj.user
