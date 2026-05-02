@@ -20,7 +20,7 @@ execute:
   echo: fenced
   freeze: true
   error: false
-  #cache: true
+  cache: true
 editor_options: 
   chunk_output_type: console
 ---
@@ -31,7 +31,7 @@ editor_options:
 
 ## Case Background
 
-After an initial meeting in which you presented your first insights from the user-generated-data research project, the question comes up, if one can find more insights from the reviews and review headlines of the different airlines.
+After an initial meeting in which you presented your first insights from the user-generated-data research project in Chater 5, the question comes up, if one can find more insights from the reviews and review headlines of the different airlines.
 
 The board is especially interested to learn if there are general patterns and topics passengers debate about when flying. The board is also interested in finding a way to measure **brand equity** and **customer satisfaction** of the competing airlines to develop an **industry dashboard** that tracks brand equity and customer satisfaction for the **most prominent airlines**.
 
@@ -89,6 +89,47 @@ if (!require("vader", character.only = TRUE)) {
 }
 ```
 
+## Comparison of Major Text Mining Packages
+
+| Feature | `tm` | `tidytext` | `text2vec` | `quanteda` |
+|---------------|---------------|---------------|---------------|---------------|
+| Released | 2008 | 2016 | 2016 | 2016 |
+| Philosophy | OOP, own data structures | Tidy data principles | High performance | Comprehensive NLP |
+| Data format | Corpus object | Data frames / tibbles | Sparse matrices | Corpus + tokens objects |
+| Learning curve | Moderate | Low | Moderate | Moderate |
+| Speed | Moderate | Moderate | **Very fast** | Fast |
+| Large datasets | Limited | Limited | **Excellent** | Good |
+| tidyverse compatible | No | **Yes** | Partial | Partial |
+| ML ready output | DTM/TDM | Needs conversion | **Direct sparse matrix** | DTM/TDM |
+
+|     |
+|-----|
+|     |
+
+#### When to Use Each Package
+
+| Use Case                   | Recommended Package  |
+|----------------------------|----------------------|
+| Quick exploratory analysis | `tidytext`           |
+| Building ML classifiers    | `text2vec`           |
+| Legacy code maintenance    | `tm`                 |
+| Advanced NLP tasks         | `quanteda`           |
+| Working within tidyverse   | `tidytext`           |
+| Very large text datasets   | `text2vec`           |
+| Social media analysis      | `tidytext` + `vader` |
+
+#### The Modern Trend
+
+While `tm` was the **go-to package for many years** and you will still find it in many textbooks and older code, the R text mining ecosystem has largely shifted toward:
+
+-   `tidytext` for exploratory analysis and visualization
+
+-   `text2vec` for machine learning pipelines
+
+-   `quanteda` for advanced NLP
+
+That said, `tm` is still worth knowing because a lot of existing code, tutorials, and academic papers use it, and its `Corpus` and `DocumentTermMatrix` objects are widely referenced in the text mining literature.
+
 ## Reading Data
 
 ```{r}
@@ -107,9 +148,9 @@ Airline_Reviews_Leviev |>
   arrange(-n)
 ```
 
-- The data set consists of 24391 reviews from 16 different major airlines and thus provides a sufficient level of information to base our analysis on.
+-   The data set consists of 24,391 reviews from 16 different major airlines and thus provides a sufficient level of information to base our analysis on.
 
-- To explore the number of reviews per airline we can use the following code that will give us a pie chart and the relative share of reviews per airline.
+-   To explore the number of reviews per airline we can use the following code that will give us a plot and the relative share of reviews per airline.
 
 # Exploratory Data Analysis
 
@@ -145,7 +186,7 @@ Airline_Reviews_Leviev |>
   theme_minimal()
 ```
 
-## Overall rating by Airline
+## Overall rating by Airlines
 
 To further understand how satisfied passengers are and to ensure that we equally base our analysis on positive and negative reviews, let us rely on the **overall rating score**, each review comes with. The following code allows us to inspect boxplots for the overall rating per airline.
 
@@ -155,7 +196,7 @@ In addition, we use `RColorbrewer` and `ggthemes` to allow us to use a non-stand
 
 ```{r}
 #| label: box-plot-rating
-Airline_Reviews_Leviev %>%
+Airline_Reviews_Leviev |>
   mutate(Airline = fct_reorder(Airline, overall_rating)) |>
   ggplot(aes(x = Airline, y = overall_rating, fill = Airline)) +
   geom_boxplot() +
@@ -179,11 +220,11 @@ To better understand and inspect the mean ratings we can also rely on a barchart
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: bar-plot-mean-rating
-meanrating.airline = Airline_Reviews_Leviev %>%
-  group_by(Airline) %>%
+meanrating.airline = Airline_Reviews_Leviev |>
+  group_by(Airline) |>
   summarise(MeanRating = mean(overall_rating, na.rm = TRUE))
 
-meanrating.airline %>%
+meanrating.airline |>
   ggplot(aes(reorder(Airline, MeanRating), MeanRating)) +
   geom_col() +
   xlab("Airlines") +
@@ -191,7 +232,7 @@ meanrating.airline %>%
   ggtitle("Mean ratings, by airline") +
   geom_text(
     aes(label = round(MeanRating, digits = 2)),
-    size = 2,
+    size = 5,
     colour = "white",
     position = position_stack(vjust = 0.5)
   ) +
@@ -208,27 +249,27 @@ Both, the boxplots as well as the bar chart, indicate that we have enough variat
 
 Two categories of methods exist.
 
-- Top-Down Sentiment Classifiers:
+-   Top-Down Sentiment Classifiers:
 
-  - Top-Down Sentiment Classifiers work by analyzing text at a high level, using pre-defined sentiment lexicons to classify the overall sentiment of a text.
+    -   Top-Down Sentiment Classifiers work by analyzing text at a high level, using pre-defined sentiment lexicons to classify the overall sentiment of a text.
 
-  - Uses bag-of-words approach to analyze text at a high level, using pre-defined sentiment lexicons to classify the overall sentiment of a text.
+    -   Uses **bag-of-words** approach to analyze text at a high level, using pre-defined sentiment lexicons to classify the overall sentiment of a text.
 
-- Bottom-Up Sentiment Classifiers
+-   Bottom-Up Sentiment Classifiers
 
-  - Bottom-Up Sentiment Classifiers work by analyzing text at a granular level, breaking down the text into individual words or phrases and then aggregating sentiment scores to determine the overall sentiment.
+    -   Bottom-Up Sentiment Classifiers work by analyzing text at a granular level, breaking down the text into individual words or phrases and then aggregating sentiment scores to determine the overall sentiment.
 
 Let us first see how **Top-Down Sentiment Classifiers** work and how we can extract emotion and sentiment information with the help of the *NRC dictionary*.
 
-In R the **EmoLex NRC dictionary** is implemented in various packages. We recommend to use the tidytext package, as it allows for best text handling and has furthermore been shown to be superior in speed and computational needs. After loading the package, we can now use the inbuilt EmoLex NRC function to gain a first understanding of which airlines face which types of emotions, by looking at the mean emotion levels per airline. We start, with the following code.
+In R the **EmoLex NRC dictionary** is implemented in various packages. We recommend to use the `tidytext` package, as it allows for best text handling and has furthermore been shown to be superior in speed and computational needs. After loading the package, we can now use the inbuilt `EmoLex NRC` function to gain a first understanding of which airlines face which types of emotions, by looking at the mean emotion levels per airline. We start, with the following code.
 
 ## Unnesting target text
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: unnest-review-text
 Airline_Reviews_Leviev$ReviewNumb = 1:24391
-AirlineReviews_Words <- Airline_Reviews_Leviev %>%
-  mutate(ReviewNumb = 1:24391) %>%
+AirlineReviews_Words <- Airline_Reviews_Leviev |>
+  mutate(ReviewNumb = 1:24391) |>
   unnest_tokens(word, review_text)
 
 AirlineReviews_Words |>
@@ -241,7 +282,7 @@ Looking at the created AirlineReviews_Words dataframe, you will quickly realize 
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: remove-stopwords
-AirlineReviews_Words <- AirlineReviews_Words %>%
+AirlineReviews_Words <- AirlineReviews_Words |>
   anti_join(stop_words, by = "word")
 ```
 
@@ -255,12 +296,12 @@ Via anti_join we simply tell R to look up all words in the stop_words list and d
 library(textdata)
 nrc <- lexicon_nrc(dir = getwd())
 
-AirlineReviews_Sentiment <- AirlineReviews_Words %>%
-  inner_join(nrc) %>%
-  count(Airline, index = ReviewNumb, sentiment) %>%
+AirlineReviews_Sentiment <- AirlineReviews_Words |>
+  inner_join(nrc) |>
+  count(Airline, index = ReviewNumb, sentiment) |>
   pivot_wider(names_from = sentiment, values_from = n, values_fill = 0)
 
-head(AirlineReviews_Sentiment)
+AirlineReviews_Sentiment
 ```
 
 > The resulting data frame now shows how many times a word from each emotion category appears in each review. We can take this information and now calculate the airline-specific mean emotion values.
@@ -271,8 +312,8 @@ head(AirlineReviews_Sentiment)
 #| label: mean-emotion-value
 AirlineReviews_Sentiment |> glimpse()
 
-AirlineReviews_Sentiment_Means = AirlineReviews_Sentiment %>%
-  group_by(Airline) %>%
+AirlineReviews_Sentiment_Means = AirlineReviews_Sentiment |>
+  group_by(Airline) |>
   summarise(
     MeanAnger = mean(anger),
     MeanDisgust = mean(disgust),
@@ -284,7 +325,7 @@ AirlineReviews_Sentiment_Means = AirlineReviews_Sentiment %>%
     MeanTrust = mean(trust),
     MeanJoy = mean(joy),
     MeanPositive = mean(positive)
-  ) %>%
+  ) |>
   mutate(MeanSentiment = MeanPositive - MeanNegative)
 
 AirlineReviews_Sentiment_Means |> glimpse()
@@ -298,12 +339,12 @@ Subsequently, we can now take this data frame to plot the values for each airlin
 #| label: plot-sentiments
 # Negative sentiments
 
-AirlineReviews_NegMeansWide <- AirlineReviews_Sentiment_Means %>%
-  select(Airline, MeanAnger, MeanDisgust, MeanFear, MeanSadness) %>%
+AirlineReviews_NegMeansWide <- AirlineReviews_Sentiment_Means |>
+  select(Airline, MeanAnger, MeanDisgust, MeanFear, MeanSadness) |>
   gather(key = "variable", value = "value", -Airline)
 
 
-AirlineReviews_NegMeansWide %>%
+AirlineReviews_NegMeansWide |>
   mutate(Airline = fct_reorder(Airline, value)) |>
   ggplot(aes(x = Airline, y = value, fill = Airline)) +
   geom_col() +
@@ -324,11 +365,11 @@ AirlineReviews_NegMeansWide %>%
 
 # Positive Sentiments
 
-AirlineReviews_PosMeansWide <- AirlineReviews_Sentiment_Means %>%
-  select(Airline, MeanJoy, MeanAnticipation, MeanSurprise, MeanTrust) %>%
+AirlineReviews_PosMeansWide <- AirlineReviews_Sentiment_Means |>
+  select(Airline, MeanJoy, MeanAnticipation, MeanSurprise, MeanTrust) |>
   gather(key = "variable", value = "value", -Airline)
 
-AirlineReviews_PosMeansWide %>%
+AirlineReviews_PosMeansWide |>
   mutate(Airline = fct_reorder(Airline, value)) |>
   ggplot(aes(x = Airline, y = value, fill = Airline)) +
   scale_fill_tableau(palette = "Tableau 20") +
@@ -336,7 +377,7 @@ AirlineReviews_PosMeansWide %>%
   #geom_jitter(width = 0.05, alpha = 0.05) +
   geom_text(
     aes(label = round(value, digits = 2)),
-    size = 3,
+    size = 4,
     colour = "white",
     position = position_stack(vjust = 0.5)
   ) +
@@ -349,11 +390,11 @@ AirlineReviews_PosMeansWide %>%
 
 # Mean General Sentiment
 
-AirlineReviews_SentimentMeansWide <- AirlineReviews_Sentiment_Means %>%
-  select(Airline, MeanPositive, MeanNegative, MeanSentiment) %>%
+AirlineReviews_SentimentMeansWide <- AirlineReviews_Sentiment_Means |>
+  select(Airline, MeanPositive, MeanNegative, MeanSentiment) |>
   gather(key = "variable", value = "value", -Airline)
 
-AirlineReviews_SentimentMeansWide %>%
+AirlineReviews_SentimentMeansWide |>
   ggplot(aes(x = Airline, y = value, fill = Airline)) +
   scale_fill_tableau(palette = "Tableau 20") +
   geom_col() +
@@ -374,7 +415,7 @@ AirlineReviews_SentimentMeansWide %>%
 
 ## Calculating Emotion Distances
 
-We can also use the emotion information to see how different airlines are from each other. Do you remember the concept of the Euclidean distance, which we discussed in the STP and clustering chapter? We can simply calculate the distance across all airlines based on the mean emotions. We can subsequently use a method called multidimensional scaling (MDS) to plot the airlines in a 2-dimensional space, based on the Euclidean distances we just calculated.
+We can also use the emotion information to see how different airlines are from each other. Do you remember the concept of the Euclidean distance, which we discussed in the STP and clustering chapter? We can simply calculate the distance across all airlines based on the mean emotions. We can subsequently use a method called **multidimensional scaling (MDS)** to plot the airlines in a 2-dimensional space, based on the Euclidean distances we just calculated.
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: emotion-distance-calcuation
@@ -385,7 +426,7 @@ EmotionDistance_Airlines = as.matrix(dist(Airlines_MeanEmotions))
 rownames(EmotionDistance_Airlines) <- AirlineReviews_Sentiment_Means$Airline
 ```
 
-## Plotting Airlines in two-dimensional space
+## Plotting Airlines in Two-Dimensional Space
 
 ```{r}
 #| label: plot-emotional-distance
@@ -412,45 +453,245 @@ text(x, y, labels = row.names(EmotionDistance_Airlines), cex = .7) # text(): Add
 Looking at the different groups of airlines in the plot, what do you think does it mean if an airline is more on the bottom? What does it mean if an airline is more on the right than on the left hand side of the plot?
 :::
 
-# Rule Based Top-Down Analysis
+# Top-Down vs. Bottom-Up Analysis
+
+Here is a comprehensive comparison of top-down and bottom-up analysis in text mining:
+
+## Core Philosophy
+
+|                 | Top-Down                      | Bottom-Up                  |
+|-------------------|----------------------------|-------------------------|
+| Starting point  | Theory or hypothesis          | Raw text                   |
+| Direction       | Theory → Data                 | Data → Theory              |
+| Goal            | Confirm or reject assumptions | Discover unknown patterns  |
+| Researcher role | Defines categories in advance | Lets data speak for itself |
+
+## Bottom-Up vs Top-Down Summary
+
+|   | Bottom-Up | Top-Down |
+|------------------------|------------------------|------------------------|
+| Starting point | Raw text | Hypothesis |
+| Approach | Exploratory | Confirmatory |
+| Outcome | Discover unknown patterns | Test known assumptions |
+| Techniques | LDA, word frequency, n-grams | Sentiment classification, keyword search |
+| Risk | Findings may be hard to interpret | May miss unexpected patterns |
+| Best for | Early exploration, unknown data | Testing specific research questions |
+
+## How Each Package Supports Both Approaches
+
+| Package | Bottom-Up Use | Top-Down Use |
+|-------------------|---------------------------|---------------------------|
+| `tm` | Word frequency, DTM exploration | Predefined keyword search, classification |
+| `tidytext` | N-gram discovery, TF-IDF exploration | Sentiment scoring with predefined lexicons |
+| `text2vec` | Vocabulary exploration, topic modeling | ML classification like your `glmnet` model |
+| `quanteda` | Corpus statistics, keyword discovery | Dictionary-based analysis, hypothesis testing |
+
+## Common Techniques
+
+### Top-Down Techniques:
+
+| Technique                   | Purpose                               |
+|-----------------------------|---------------------------------------|
+| Sentiment classification    | Test if reviews are positive/negative |
+| Keyword search              | Find predefined terms                 |
+| Dictionary-based analysis   | Score against predefined word lists   |
+| Supervised ML (glmnet, SVM) | Classify into predefined categories   |
+| VADER                       | Score sentiment using fixed rules     |
+
+### Bottom-Up Techniques:
+
+| Technique               | Purpose                          |
+|-------------------------|----------------------------------|
+| Word frequency analysis | Discover dominant themes         |
+| TF-IDF                  | Find distinctive words per group |
+| Topic modeling (LDA)    | Uncover hidden themes            |
+| N-gram analysis         | Discover meaningful phrases      |
+| Word associations       | Find co-occurring words          |
+| Clustering              | Group similar documents          |
+
+## When to Use Each
+
+| Situation                                    | Recommended Approach |
+|----------------------------------------------|----------------------|
+| New, unfamiliar dataset                      | Bottom-Up first      |
+| Testing a specific business question         | Top-Down             |
+| Exploring customer feedback broadly          | Bottom-Up            |
+| Comparing sentiment across groups            | Top-Down             |
+| Early stages of a research project           | Bottom-Up            |
+| Reporting to stakeholders with specific KPIs | Top-Down             |
+| Looking for unexpected insights              | Bottom-Up            |
+| Replicating a previous study                 | Top-Down             |
+
+# Rule-Based Top-Down Analysis
 
 ## Weaknesses
 
-While basic dictionaries such as LIWC and NRC provide a quick and reliable way to capture words related to different forms and levels of sentiment, they often face the problem that they *do not take the context in which a word occurs into account*.
+While basic dictionaries such as `LIWC` and `NRC` provide a quick and reliable way to capture words related to different forms and levels of sentiment, they often face the problem that they *do not take the context in which a word occurs into account*.
 
-- Ignore negation
+-   **Ignore negation**
 
-  - This can quickly become an issue, if we for example think about the following example.
+    -   This can quickly become an issue, if we for example think about the following example.
 
-  - “I did not like the airline there was no good service and no one cared about us”
+    -   “*I did not like the airline there was no good service and no one cared about us*”
 
-  - If we **ignore the negation**, the review actually consists of several words which are commonly assigned to a positive sentiment such as like, good, and care. Many dictionaries would thus come to the wrong conclusion, by simply counting the occurrence of words, which belong to a positive sentiment category.
+    -   If we **ignore the negation**, the review actually consists of several words which are commonly assigned to a positive sentiment such as like, good, and care. Many dictionaries would thus come to the wrong conclusion, by simply counting the occurrence of words, which belong to a positive sentiment category.
 
-- Ambiguous
+-   **Ambiguous**
 
-  - Similarly, reviews may be **ambiguous** with different types of sentiment being assigned to two different entities like displayed in the following example: "It was a shitty holiday with a lot of rain and a bad hotel, but Alitalia was great and we love the service." Here the negative sentiment only targets the weather and the hotel, but does explicitly spare the corresponding airline. Simply counting again, the occurrence of words, does not help, as the total number of negative sentiment words is twice the number of positive words.
+    -   Similarly, reviews may be **ambiguous** with different types of sentiment being assigned to two different entities like displayed in the following example:
 
-- Strength of emotion
+        -   "*It was a shitty holiday with a lot of rain and a bad hotel, but Alitalia was great and we love the service.*"
 
-  - Furthermore, the way people write, may also indicate something about the **strength of emotion** involved. Take the following two reviews:
+        -   Here the negative sentiment only targets the weather and the hotel, but does explicitly spare the corresponding airline.
 
-  - “I love Allitalia” and “I LOVE AlIitalia!!!!”
+        -   Simply counting again, the occurrence of words, does not help, as the total number of negative sentiment words is twice the number of positive words.
 
-  - You will certainly agree, that the latter expresses more emotion than the first one, as it is written in caps and the love for Allitalia is further underlined by four exclamation marks at the end of the sentence. Again, simply counting the occurrence of positive words, would lead to a wrong result, as both reviews only consist of one positive word (love).
+-   **Strength of emotion**
 
-- New vocabulary
+    -   Furthermore, the way people write, may also indicate something about the **strength of emotion** involved. Take the following two reviews:
 
-  - At last, we also witness that digital communication is changing and that consumers adapt their linguistic styles. Often emotions are not only expressed by words, but also by symbols. Think about **emojis, emoticons** (i.e. ;-)) or common abbreviations such as lol (laughing out loud) or rofl (rolling on floor laughing), which made their way into our everyday online conversations. Most established dictionaries do not yet list these new terms and will thus similarly ignore these.
+        -   “I love Allitalia” and “I LOVE AlIitalia!!!!”
+
+        -   You will certainly agree, that the latter expresses more emotion than the first one, as it is written in caps and the love for Allitalia is further underlined by four exclamation marks at the end of the sentence.
+
+    -   Again, simply counting the occurrence of positive words, would lead to a wrong result, as both reviews only consist of one positive word (love).
+
+-   **New vocabulary**
+
+    -   At last, we also witness that digital communication is changing and that consumers adapt their linguistic styles.
+    -   Often emotions are not only expressed by words, but also by symbols.
+        -   Think about **emojis, emoticons** (i.e. ;-)) or common abbreviations such as lol (laughing out loud) or rofl (rolling on floor laughing), which made their way into our everyday online conversations.
+    -   Most established dictionaries do not yet list these new terms and will thus similarly ignore these.
 
 ## VADER
 
-- **VADER** is a rule-based dictionary, which means, it does take context into account and controls if a word stands together with a negation, or if a sentiment is enforced by e.g. exclamation marks or being written in caps (Hutto and Gilbert 2014).
+-   Stands for **Valence Aware Dictionary and sEntiment Reasoner**. It is a rule-based sentiment analysis tool specifically designed for **social media and short texts**, though it works well on other text types too.
 
-- While VADER was initially developed for Python, there is now a package available, that allows us to use VADER also in R.
+-   **Key Characteristics**
 
-- Given the rule implementation, the benefit of accounting for context, comes of course at a cost: time. Applying VADER to larger sets of reviews of comments, will consume substantially more time than for example NRC.
+    VADER is different from machine learning approaches like your `glmnet` classifier in that it requires **no training data** — it uses a pre-built dictionary of words with sentiment scores.
 
-- Still, often the waiting time is worth the effort. Let us now see how well VADER performs. We first build vectors with our special sentences.
+-   **VADER** is a rule-based dictionary, which means, it does take context into account and controls if a word stands together with a negation, or if a sentiment is enforced by e.g. exclamation marks or being written in caps (Hutto and Gilbert 2014).
+
+-   While VADER was initially developed for Python, there is now a package available, that allows us to use VADER also in R.
+
+-   Given the rule implementation, the benefit of accounting for context, comes of course at a cost: time.
+
+    -   Applying VADER to larger sets of reviews of comments, will **consume substantially more time** than for example NRC.
+
+-   Still, often the waiting time is worth the effort.
+
+-   Let us now see how well VADER performs. We first build vectors with our special sentences.
+
+### How It Works
+
+#### 1. Sentiment Lexicon
+
+VADER has a dictionary of over 7,500 words, each manually rated on a scale from **-4 (most negative) to +4 (most positive)**:
+
+| Word        | Score |
+|-------------|-------|
+| "excellent" | +3.0  |
+| "good"      | +1.9  |
+| "bad"       | -2.5  |
+| "terrible"  | -3.4  |
+| "ok"        | +0.9  |
+
+#### 2. Four Output Scores
+
+For any piece of text, VADER returns four scores:
+
+| Score | Meaning |
+|---------------------|---------------------------------------------------|
+| `pos` | Proportion of text that is positive (0 to 1) |
+| `neg` | Proportion of text that is negative (0 to 1) |
+| `neu` | Proportion of text that is neutral (0 to 1) |
+| `compound` | Overall sentiment score from **-1 (most negative) to +1 (most positive)** |
+
+The **compound score** is the most commonly used — a single summary score for the whole text.
+
+### Compound Score Interpretation
+
+| Compound Score         | Sentiment |
+|------------------------|-----------|
+| ≥ 0.05                 | Positive  |
+| ≤ -0.05                | Negative  |
+| Between -0.05 and 0.05 | Neutral   |
+
+### What Makes VADER Special
+
+Unlike simple word-counting approaches, VADER understands several linguistic nuances:
+
+#### Capitalization
+
+```         
+"good flight"   → lower sentiment "GOOD flight"   → higher sentiment (emphasis)
+```
+
+#### Punctuation
+
+```         
+"great flight"    → positive "great flight!!!" → more positive (exclamation adds intensity)
+```
+
+#### Negation
+
+```         
+"good"     → positive "not good" → negative (negation is handled)
+```
+
+#### Degree Modifiers
+
+```         
+"good"          → baseline positive "very good"     → more positive "extremely good"→ even more positive "barely good"   → less positive
+```
+
+#### Slang and Emoticons
+
+```         
+"gr8"  → recognized as positive ":-)"  → recognized as positive ":-("  → recognized as negative
+```
+
+### Typical Procedure in R
+
+VADER is available through the `vader` package:
+
+``` r
+library(vader)
+
+# Single text
+get_vader("The flight was absolutely GREAT!!!")
+
+# On a dataframe of reviews
+reviews <- reviews |>
+  mutate(vader_score = vader_df(text)$compound)
+
+# Classify sentiment using compound score
+reviews <- reviews |>
+  mutate(
+    sentiment = case_when(
+      vader_score >= 0.05  ~ "Positive",
+      vader_score <= -0.05 ~ "Negative",
+      TRUE                 ~ "Neutral"
+    )
+  )
+```
+
+### VADER vs Machine Learning
+
+|   | VADER | glmnet / ML |
+|------------------------|------------------------|------------------------|
+| Training data needed | No | Yes |
+| Domain specific | No | Yes — trained on your data |
+| Handles slang/emoticons | Yes | Only if in training data |
+| Speed | Very fast | Fast after training |
+| Accuracy on domain data | Moderate | Higher if well trained |
+| Interpretability | High | Moderate |
+| Best for | Quick analysis, social media | Domain-specific classification |
+
+### When to Use VADER
+
+VADER is a good choice when you have **no labelled training data**, are working with **social media text**, need a **quick baseline** before building a full ML model, or want a **simple interpretable** approach. For domain-specific tasks like airline reviews where you have labelled data, a trained model like `glmnet` classifier will generally outperform VADER.
 
 ### Data
 
@@ -552,24 +793,24 @@ head(VADER)
 
 ## Introduction
 
-While Top-Down sentiment analysis relies on pre-curated lists which commonly originate from previous research studies and are the result of thorough qualitative research work, bottom-up sentiment analysis is trying to “build” own dictionaries with the help of *supervised machine learning*.
+While Top-Down sentiment analysis relies on *pre-curated lists* which commonly originate from previous research studies and are the result of thorough qualitative research work, bottom-up sentiment analysis is trying to “build” own dictionaries with the help of **supervised machine learning**.
 
 Here, we use *textual data*, where we know already the sentiment, to infer probabilities that the occurrence of words (or word combinations) represent a positive or negative sentiment (or any other category we are interested in such as satisfaction, recommendation, disgust, etc.).
 
-- **Training Data**
+-   **Training Data**
 
-  - The textual data we infer the probabilities from is commonly referred to as training data.
+    -   The textual data we infer the probabilities from is commonly referred to as training data.
 
-  - Training data can be obtained from various sources. For example, one may use human coders to classify a set of texts into the categories of interest (i.e. positive or negative sentiment) and use these texts as training data.
+    -   Training data can be obtained from various sources. For example, one may use human coders to classify a set of texts into the categories of interest (i.e. positive or negative sentiment) and use these texts as training data.
 
-## Building Training dataset
+## Building Training a Dataset
 
-Given that we have already overall rating scores, we can follow the latter approach and split our own review data set in two data sets, containing only negative and positive reviews.
+Given that we have already *overall rating scores*, we can follow the latter approach and split our own review data set in two data sets, containing only **negative** and **positive** reviews.
 
 ```{r eval=TRUE, echo=TRUE}
-#| label: build-training-data
-Negative_Reviews = Airline_Reviews_Leviev %>% filter(overall_rating < 2)
-Positive_Reviews = Airline_Reviews_Leviev %>% filter(overall_rating > 8)
+#| label: build-training-data-pos-neg-reviews
+Negative_Reviews = Airline_Reviews_Leviev |> filter(overall_rating < 2)
+Positive_Reviews = Airline_Reviews_Leviev |> filter(overall_rating > 8)
 
 set.seed(123)
 
@@ -596,11 +837,11 @@ Once we have the sets of positive and negative reviews, we can randomly extract 
 Once we randomly selected the reviews, we bind them together in the dataframe BottomUpDF, that now contains the titles as well as the information if the title origins from the “positive” or “negative” sentiment set.
 :::
 
-## Cleaning and Preparing Dataset
+## Cleaning and Preparing the Dataset
 
-We can then continue to further prepare the textual information and to make life a bit easier for our computers, by transferring all text to *lower case* (otherwise the algorithm would treat airline and Airline as two different words), *removing any punctuation* as elements such as commas, etc. do not provide much meaning, clean the corpus from *stopwords*, and *stem* all words to their common form, which again helps to remove redundancies in the data and making the set slimmer.
+We can then continue to further prepare the textual information and to make life a bit easier for our computers, by transferring all text to *lower case* (otherwise the algorithm would treat airline and Airline as two different words), **removing any punctuation** as elements such as commas, etc. do not provide much meaning, **clean the corpus from *stopwords***, and ***stem*** **all words** to their common form, which again helps to remove redundancies in the data and making the set slimmer.
 
-Finally, we can use the `removeSparseTerms` function to identify words, which occur only rarely and which will thus similarly not provide too much information (here we drop words, which only occur in 0.5% of all documents; feel free to try out other cut-off values).
+Finally, we can use the `removeSparseTerms` function to identify words, which occur only rarely and which will thus similarly not provide too much information (here we drop words, which only occur in *0.5% of all documents*; feel free to try out other cut-off values).
 
 The resulting dataframe `tSparse` now has for each word included in our training data set a column, and indicates for each document (rows) if a word occurs or not (1/0). Such matrices are commonly referred to as a **Document Term Matrix**.
 
@@ -618,7 +859,7 @@ corpus = tm_map(corpus, removeWords, c("cloth", stopwords("english")))
 corpus = tm_map(corpus, stemDocument)
 
 frequencies = DocumentTermMatrix(corpus)
-sparse = removeSparseTerms(frequencies, 0.995)
+sparse = removeSparseTerms(frequencies, 0.995) #0.5%
 tSparse = as.data.frame(as.matrix(sparse))
 colnames(tSparse) = make.names(colnames(tSparse))
 tSparse$sentiment = BottomUpDF$sentiment
@@ -632,11 +873,11 @@ We can now start with training a basic machine learning model that allows us to 
 
 ## Split Prepped Training Data
 
-To be able to later assess the quality of our sentiment classifier, we have to again split our training data set into the “real” training set and into a test set.
+To be able to later assess the quality of our sentiment classifier, we have to again split our training data set into the **“real” training set** and into a **test set**.
 
 The test set will allow us later to determine how accurate our sentiment predictions are, as we can first predict the sentiment with the help of the sentiment classifier and to compare the predictions with the known sentiment.
 
-We rely here on an 80/20 split but feel free to try out other compositions.
+We rely here on an **80/20 split** but feel free to try out other compositions.
 
 ```{r eval=TRUE, echo=FALSE}
 #| label: split-test-dataset-again
@@ -648,15 +889,17 @@ trainSparse = subset(tSparse, split == TRUE)
 testSparse = subset(tSparse, split == FALSE)
 
 str(trainSparse)
+nrow(trainSparse)
 ```
 
 ## Random Forest Model
 
-We can now start with using the trainSparse set to develop our classifier. We will rely on a common classification algorithm, called Random Forest. The algorithm will try to infer for each word in our *DTM* the probability that this word occurs in a positive or a negative review title.
+We can now start with using the trainSparse set to *develop our classifier*. We will rely on a common classification algorithm, called Random Forest. The algorithm will try to infer for each word in our *DTM* the probability that this word occurs in a positive or a negative review title.
 
-Given that the randomForest function requires factors as input, we also adapt our matrix accordingly, before training the model with the following code. Don’t mind if this takes a while.
+Given that the randomForest function **requires factors as input**, we also adapt our matrix accordingly, before training the model with the following code. Don’t mind if this takes a while.
 
 ```{r eval=TRUE, echo=FALSE}
+#| label: random-forest-model
 library(randomForest)
 
 set.seed(100)
@@ -690,11 +933,11 @@ So, this means in 81.75% of classifications, our classifier comes to the correct
 
 So far, we relied on the pure occurrence of words in a document to infer the sentiment probabilities. However, we saw before that the context in which a word is embedded also matters. The latest developments such as `Word2Vec` in NLP account for this.
 
-Luckily, R’s `text2vec` package provides us already with pre-trained word-embedding vectors, which we can use for our sentiment analysis and building a sentiment classifier that accounts for word co-occurrences. For more details on how these vectors have been estimated, we recommend looking up the great vignette and website of the package.
+Luckily, R’s `text2vec` package provides us already with **pre-trained word-embedding vectors**, which we can use for our sentiment analysis and building a sentiment classifier that accounts for word co-occurrences. For more details on how these vectors have been estimated, we recommend looking up the great vignette and website of the package.
 
 We can access the package and start building our model with the following code.
 
-## Spliting Data into Training and Testing sets
+## Splitting Data into Training and Testing Sets
 
 ```{r eval=TRUE, echo=FALSE}
 #| label: text2vec-sentiment-package
@@ -706,8 +949,8 @@ library(data.table)
 #| label: text2vec-sentiment-analysis
 # Train and Test Data
 
-Negative_Reviews = Airline_Reviews_Leviev %>% filter(overall_rating < 2)
-Positive_Reviews = Airline_Reviews_Leviev %>% filter(overall_rating > 8)
+Negative_Reviews = Airline_Reviews_Leviev |> filter(overall_rating < 2)
+Positive_Reviews = Airline_Reviews_Leviev |> filter(overall_rating > 8)
 
 set.seed(123)
 
@@ -734,11 +977,11 @@ str(train)
 
 Similar to our Random Forrest example we start again by building a training and test data set, that we can use for evaluating the accuracy of our sentiment classifier.
 
-To make things comparable we use the same number of randomly drawn review titles and split again 80/20. Furthermore, we apply again similar pre-processing steps and lower all words.
+To make things comparable we use the same number of randomly drawn review titles and split again **80/20**. Furthermore, we apply again similar pre-processing steps and lower all words.
 
 ## Pre-processing
 
-### Overall Flow
+-   Overall Flow
 
 ```         
 raw text → tolower → word_tokenizer → vocabulary → vectorizer → DTM
@@ -774,15 +1017,18 @@ vocab = create_vocabulary(it_train)
 vectorizer = vocab_vectorizer(vocab)
 ```
 
-The DTM is a sparse matrix (most cells are 0), which text2vec handles efficiently, making this pipeline well-suited for large text datasets like airline reviews.
+::: callout-tip
+### Document-Term Matrix
+
+The DTM is a sparse matrix (most cells are 0), which `text2vec` handles efficiently, making this pipeline well-suited for large text datasets like airline reviews.
 
 Creates a **Document-Term Matrix** — a sparse matrix where:
 
-- Each **row** is one document (review)
+-   Each **row** is one document (review)
 
-- Each **column** is one word from the vocabulary
+-   Each **column** is one word from the vocabulary
 
-- Each **cell** is the word count for that word in that document
+-   Each **cell** is the word count for that word in that document
 
 For example:
 
@@ -790,6 +1036,7 @@ For example:
 |------|------|--------|-------|
 | doc1 | 2    | 1      | 0     |
 | doc2 | 0    | 1      | 3     |
+:::
 
 ```{r}
 #| label: build-dtm
@@ -799,9 +1046,137 @@ dtm_train = create_dtm(it_train, vectorizer)
 
 ## Training a model
 
-Now we can start with training the model with the following command. We tell the `glmnet` function where it can find the training data (dtm_train) and which variable is the outcome variable of interest (sentiment).
+### Regularized Regression Model
 
-The other values in the function are *tuning parameters*, which can be ignored for now. In case you want to go in more detail here, we recommend to consult the vignette of the text2vec package.
+#### Core Idea
+
+Regular regression (OLS) minimizes the sum of squared residuals. `glmnet` adds a **penalty term** to shrink or zero out coefficients, which helps with:
+
+-   **Overfitting** — especially when you have many predictors
+
+-   **Variable selection** — Lasso can shrink some coefficients to exactly 0
+
+-   **Multicollinearity** — Ridge handles correlated predictors well
+
+-   The penalty is controlled by two parameters:
+
+| Parameter | Meaning |
+|-----------------------|-------------------------------------------------|
+| `lambda` (λ) | Overall regularization strength |
+| `alpha` (α) | Mix between L1 and L2 (0 = Ridge, 1 = Lasso, 0–1 = Elastic Net) |
+
+#### Regularized Regression Objective Function
+
+All three models minimize a **loss term** plus a **penalty term**:
+
+$$
+\underbrace{\sum_{i=1}^{n}(y_i - x_i^T\beta)^2}_{\text{Loss (RSS)}} + \underbrace{\lambda \cdot \text{Penalty}(\beta)}_{\text{Regularization}}
+$$
+
+where $n$ = number of samples, $p$ = number of predictors, $\beta$ = coefficient vector, and $\lambda \geq 0$ controls regularization strength.
+
+##### ① Ridge Regression ($\alpha = 0$)
+
+$$
+\min_{\beta} \sum_{i=1}^{n}(y_i - x_i^T\beta)^2 + \lambda \sum_{j=1}^{p} \beta_j^2
+$$
+
+-   Applies an **L2 penalty** (sum of squared coefficients)
+-   Shrinks all coefficients toward zero, but never to exactly zero
+-   Handles multicollinearity well
+
+##### ② Lasso Regression ($\alpha = 1$)
+
+$$
+\min_{\beta} \sum_{i=1}^{n}(y_i - x_i^T\beta)^2 + \lambda \sum_{j=1}^{p} |\beta_j|
+$$
+
+-   Applies an **L1 penalty** (sum of absolute coefficients)
+-   Can shrink coefficients to **exactly zero** → automatic variable selection
+-   Produces sparse solutions
+
+##### ③ Elastic Net ($0 < \alpha < 1$)
+
+$$
+\min_{\beta} \sum_{i=1}^{n}(y_i - x_i^T\beta)^2 + \lambda \left[ (1 - \alpha)\sum_{j=1}^{p}\beta_j^2 + \alpha \sum_{j=1}^{p}|\beta_j| \right]
+$$
+
+-   Blends **L1 and L2** penalties, controlled by $\alpha$
+-   $\alpha = 0$ reduces to Ridge; $\alpha = 1$ reduces to Lasso
+-   Handles correlated predictors while still allowing sparsity
+-   Default in `glmnet` (use `cv.glmnet()` to tune both $\lambda$ and $\alpha$)
+
+#### Summary Table
+
+| Model | Penalty | $\alpha$ | Variable Selection |
+|----------------|------------------------|----------------|----------------|
+| Ridge | $\lambda \sum \beta_j^2$ | 0 | No |
+| Lasso | $\lambda \sum |\beta_j|$ | 1 | Yes |
+| Elastic Net | $\lambda[(1-\alpha)\sum\beta_j^2 + \alpha\sum|\beta_j|]$ | $(0,1)$ | Partial |
+
+#### `glmnet` Package
+
+`glmnet` is a powerful R package for fitting **regularized regression models** — specifically, it fits generalized linear models (GLMs) with **elastic net regularization**, which includes both **Lasso (L1)** and **Ridge (L2)** penalties as special cases.
+
+#### Supported Model Types
+
+-   Linear regression (`family = "gaussian"`)
+
+-   Logistic regression (`family = "binomial"` or `"multinomial"`)
+
+-   Poisson regression (`family = "poisson"`)
+
+-   Cox proportional hazards (`family = "cox"`)
+
+-   And more
+
+#### Basic Usage
+
+``` r
+library(glmnet)
+
+# Fit a Lasso model (alpha = 1)
+fit <- glmnet(x, y, alpha = 1)
+
+# Use cross-validation to find the best lambda
+cv_fit <- cv.glmnet(x, y, alpha = 1)
+
+# Best lambda
+best_lambda <- cv_fit$lambda.min
+
+# Predict using best lambda
+predict(cv_fit, newx = x_new, s = "lambda.min")
+```
+
+> **Note:** `x` must be a **matrix**, not a data frame. Use `model.matrix()` to convert if needed.
+
+#### Key Functions
+
+| Function      | Purpose                                 |
+|---------------|-----------------------------------------|
+| `glmnet()`    | Fit model over a path of λ values       |
+| `cv.glmnet()` | Cross-validated λ selection             |
+| `predict()`   | Generate predictions                    |
+| `coef()`      | Extract model coefficients              |
+| `plot()`      | Visualize coefficient paths or CV curve |
+
+#### Why Use It?
+
+-   Very **fast** — uses coordinate descent algorithm
+
+-   Handles **high-dimensional data** (more predictors than observations)
+
+-   Built-in **cross-validation** via `cv.glmnet()`
+
+-   Widely used in **genomics, finance, NLP**, and other fields
+
+In short, `glmnet` is the go-to tool in R when you need regularized regression for prediction or variable selection.
+
+### Training Lasso model
+
+> Now we can start with training the model with the following command. We tell the `glmnet` function, where it can find the training data (*dtm_train*) and which variable is the outcome variable of interest (*sentiment*).
+
+The other values in the function are **tuning parameters**, which can be ignored for now. In case you want to go in more detail here, we recommend to consult the vignette of the text2vec package.
 
 ```{r eval=TRUE, echo=FALSE}
 #| label: training-logistic-lasso
@@ -840,11 +1215,11 @@ min 0.002320    42  0.9187 0.002747     681
 Lambda = 0.002320, Index = 42, AUC = 0.9187, SE = 0.002747, Nonzero = 681
 ```
 
-- This lambda value (0.002320) produced the **highest average AUC of 0.9187** across the 4 folds
+-   This lambda value (0.002320) produced the **highest average AUC of 0.9187** across the 4 folds
 
-- It uses **681 words** (non-zero coefficients) from the vocabulary as predictors
+-   It uses **681 words** (non-zero coefficients) from the vocabulary as predictors
 
-- In other words, 681 words were found useful enough to contribute to the sentiment prediction
+-   In other words, 681 words were found useful enough to contribute to the sentiment prediction
 
 #### Row 2: `1se` — Simpler, More Regularized Model
 
@@ -852,11 +1227,11 @@ Lambda = 0.002320, Index = 42, AUC = 0.9187, SE = 0.002747, Nonzero = 681
 Lambda = 0.005359, Index = 33, AUC = 0.9160, SE = 0.002721, Nonzero = 497
 ```
 
-- This is the largest lambda whose AUC is within **1 standard error** of the best AUC (0.9187 - 0.002747 ≈ 0.916)
+-   This is the **largest lambda** whose AUC is within **1 standard error** of the best AUC (0.9187 - 0.002747 ≈ 0.916)
 
-- It uses only **497 words** — a simpler model with 184 fewer predictors
+-   It uses only **497 words** — a simpler model with 184 fewer predictors
 
-- The AUC drop is tiny (0.9187 → 0.9160) but the model is meaningfully simpler
+-   The AUC drop is tiny (0.9187 → 0.9160) but the model is meaningfully simpler
 
 #### The SE Column
 
@@ -864,9 +1239,9 @@ Lambda = 0.005359, Index = 33, AUC = 0.9160, SE = 0.002721, Nonzero = 497
 SE = 0.002747
 ```
 
-- This is the **standard error of the AUC** across the 4 cross-validation folds
+-   This is the **standard error of the AUC** across the 4 cross-validation folds
 
-- A small SE means the model performance was **consistent** across folds — which is the case here, indicating a stable model
+-   A small SE means the model performance was **consistent** across folds — which is the case here, indicating a stable model
 
 #### Overall Model Quality
 
@@ -882,7 +1257,7 @@ An AUC of **0.9187 is excellent** for sentiment classification:
 #### Which Lambda Should You Choose?
 
 | Choice | Use when... |
-|------------------|------------------------------------------------------|
+|-----------------------|------------------------------------------------|
 | `lambda.min` | You want **maximum predictive accuracy** and don't mind a more complex model |
 | `lambda.1se` | You prefer a **simpler, more interpretable** model with minimal accuracy loss |
 
@@ -910,7 +1285,7 @@ glmnet:::auc(as.factor(test$sentiment), preds)
 [1] 0.9271209
 ```
 
-The AUC produced here is the **test AUC** — the real-world performance of your model on unseen data. Comparing it to the cross-validated AUC from training (`0.9187`) tells you:
+> The AUC produced here is the **test AUC** — the real-world performance of your model on unseen data. Comparing it to the cross-validated AUC from training (`0.9187`) tells you:
 
 | Scenario             | Meaning                                        |
 |----------------------|------------------------------------------------|
@@ -922,16 +1297,16 @@ The output indicates that we reach an accuracy of more than 91% which is already
 
 ## Applying Model to New Texts
 
-To allow Leviev Air to now use this model, to predict customer sentiment in any sort of conversation, we can apply the following code and see how well our model is predicting any sort of text we throw at it. Let us test the following six statements:
+> To allow **Leviev Air** to now use this model, to predict customer sentiment in any sort of conversation, we can apply the following code and see how well our model is predicting any sort of text we throw at it. Let us test the following six statements:
 
-- “I really hate this airline”
-- "Never again with AlItalia",
-- "They really suck in all dimensions"
-- "Great Service and Great Hospitality on Board",
-- "Awesome Experience and really nice staff!!"
-- "Best Airline ever! Will Fly Again with Qantas"
+-   “I really hate this airline”
+-   "Never again with AlItalia",
+-   "They really suck in all dimensions"
+-   "Great Service and Great Hospitality on Board",
+-   "Awesome Experience and really nice staff!!"
+-   "Best Airline ever! Will Fly Again with Qantas"
 
-We need to again apply the same pre-processing to the new text as we did to our training data to enable the model to interpret it. Then we can simply apply the predict function and combine the prediction with the text.
+We need to again apply the same **pre-processing** to the new text as we did to our training data to enable the model to interpret it. Then we can simply apply the predict function and combine the prediction with the text.
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: new-texts
@@ -959,6 +1334,7 @@ NewTextDataDF |> as_tibble()
 
 knitr::kable(head(NewTextDataDF), "pipe")
 ```
+
 ### Interpretation
 
 Congratulations, our efforts really paid off. Our classifier correctly predicted the sentiments of all our new text input. Maybe you would like to play around a bit and try out other comments?
@@ -969,30 +1345,30 @@ Congratulations, our efforts really paid off. Our classifier correctly predicted
 Playing around with different input texts, what do you believe are the boundaries of the current classifier? How could Leviev Air extend it? Or if they do not wish to do so, for which use cases can this classifier be used, for which not?
 :::
 
-# Topic Modelling
+# Topic Modeling with Negative Reviews {#sec-topic-modeling-neg-reviews}
 
 ## Introduction
 
-Topic Models such as *Latent Dirichlet Allocation* (LDA) or *Structural Topic Models* (STM) share the idea that documents are composed of various (latent) topics. Topic Models allow us to discover these hidden topics and to then classify each document to a topic (or various). Think about different books you like. You will be easily able to assign them each to a specific genre by remembering the content. Topic Models do the same. They rely on the content of various documents to first infer a (pre-set) number of topics to then subsequently assign the documents to the identified topics (genres). 
+> Topic Models such as **Latent Dirichlet Allocation** (LDA) or *Structural Topic Models* (STM) share the idea that documents are composed of various (latent) topics. Topic Models allow us to discover these hidden topics and to then classify each document to a topic (or various). Think about different books you like. You will be easily able to assign them each to a specific genre by remembering the content. Topic Models do the same. They rely on the content of various documents to first infer a (pre-set) number of topics to then subsequently assign the documents to the identified topics (genres).
 
--   LDA models belong to the pioneering topic models and are today amongst the most widely applied models. 
+-   LDA models belong to the pioneering topic models and are today amongst the most widely applied models.
 
--   They take the assumption that each document is composed by various words. Similarly, each topic shares a set of common words which are specific for the corresponding topic. 
+-   They take the assumption that each document is composed by various words. Similarly, each topic shares a set of common words which are specific for the corresponding topic.
 
--   The ultimate goal of the LDA is thus to identify the various topics a document belongs to, based on the words a document shares with a specific topic. 
+-   The ultimate goal of the LDA is thus to **identify the various topics a document belongs to**, based on the words a document shares with a specific topic.
 
--   LDAs belong to the group of **unsupervised machine learning** algorithms (for more details see our Churn Prediction chapter) and is thus comparable to the cluster analysis algorithms we witnessed in our STP chapter at the beginning of this book.
+-   LDAs belong to the group of **unsupervised machine learning** algorithms (for more details see our Churn Prediction chapter) and is thus comparable to the *cluster analysis algorithms* we witnessed in our STP chapter at the beginning of this book.
 
-R features multiple packages, which enable us to conduct a topic model. We recommend using the `topicmodel` package, as it offers the most versatile but still very approachable setup and has many useful functions integrated, that e.g. allow to parallelize processes, which will come handy, in case you face larger data sets and require to estimate multiple LDA models at the same time. 
+> R features multiple packages, which enable us to conduct a topic model. We recommend using the **`topicmodel` package**, as it offers the most versatile but still very approachable setup and has many useful functions integrated, that e.g. allow to parallelize processes, which will come handy, in case you face larger data sets and require to estimate multiple LDA models at the same time.
 
-We first re-use the dataframe that only contains **negative reviews** (and which we constructed for the word2vec sentiment analysis). This will allow us to first focus on which topics consumers commonly dislike when flying and to then later see, which airlines face which topics/complaints most. 
+We first re-use the dataframe that only contains **negative reviews** (and which we constructed for the `word2vec` sentiment analysis). This will allow us to first focus on which topics consumers commonly dislike when flying and to then later see, which airlines face which topics/complaints most.
 
-We again first create a Corpus that then contains the textual data from the reviews. We continue to apply the common text cleaning procedures that we have encountered before. Now the corpus is ready to enter the LDA.
+We again first create a **Corpus** that then contains the textual data from the reviews. We continue to apply the common text cleaning procedures that we have encountered before. Now the corpus is ready to enter the LDA.
 
 ## Load packages
 
-```{r eval=TRUE, echo=FALSE}
-#| label: load-packages
+```{r}
+#| label: load-packages-topicmodels
 #install.packages("ldatuning"): doesn't work since it has been removed from Cran.
 
 # install dependecies first
@@ -1011,7 +1387,7 @@ library(ldatuning)
 library(tm)
 ```
 
-## Pre-Processing 
+## Pre-Processing
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: negative-reviews-prep-lda
@@ -1047,23 +1423,26 @@ Overall_corpus_clean.Negative <- tm_map(
 
 #Adapt DF for dropped documents due to cleaning
 Overall_dtm.Negative <- DocumentTermMatrix(Overall_corpus_clean.Negative)
+
 ui = unique(Overall_dtm.Negative$i)
 dtm.new.negative = Overall_dtm.Negative[ui, ]
 ```
 
 ## Identify Topic Numbers
 
-Remember the k-mean cluster analysis we conducted in the STP chapter? Here we also needed to decide apriori how many clusters we suspected within the data set. For LDA it is the same. We need to tell the algorithm how many latent topics we assume to be in the data. This is not always easy, as we might have an idea, but given that we – commonly – are not able to really read all content, we often have a hard time finding an adequate number of topics.
+Remember the k-mean cluster analysis we conducted in the STP chapter? Here we also needed to **decide apriori how many clusters we suspected** within the data set. For LDA it is the same. We need to tell the algorithm how many **latent topics** we assume to be in the data. This is not always easy, as we might have an idea, but given that we – commonly – are not able to really read all content, we often have a hard time finding an adequate number of topics.
 
-The `ldatuning` package in R provides us with a straight-forward solution to do that. We simply have to determine the corridor of topics and the package will estimate all different LDA models and compare them. Keep in mind that this of course will take some time and require enough computational power. We can try it with the following code.
+The **`ldatuning` package** in R provides us with a straight-forward solution to do that. We simply have to determine the corridor of topics and the package will estimate all different LDA models and compare them. Keep in mind that this of course will take some time and require enough computational power. We can try it with the following code.
 
-As you can see, we can specify in the `FindTopicsNumber()` function the corridor of topics we want to try out. Here we want to see anything between 4 and 12 topics. Feel free to try out different corridors. 
+As you can see, we can specify in the `FindTopicsNumber()` function the corridor of topics we want to try out. Here we want to see anything between 4 and 12 topics. Feel free to try out different corridors.
 
 To speed up the process, the same function also allows us to parallelize the estimation, which means we can estimate multiple LDA models at the same time. This however requires our computer to also have multiple CPU cores ready, as each core can take care of one model. You can adjust the `mc.cores` parameter to your specific setting. We put as default here 4, as most modern laptops have at least 4 cores or more ready.
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: ldatuning-topics
 ## Identify Topic Number
+
+library(ldatuning)
 
 negative.result <- FindTopicsNumber(
   dtm.new.negative,
@@ -1078,6 +1457,7 @@ negative.result <- FindTopicsNumber(
 
 FindTopicsNumber_plot(negative.result)
 ```
+
 ### Interpretation
 
 -   *Cao measure*:
@@ -1086,73 +1466,146 @@ The number of topics correlates with the topic distances and thus suggest a dens
 
 -   *Deceaud measure*:
 
-Alternatively, we can focus on semantic coherence and maximize the score of Deceaud. This approach assumes that in case of models, which are semantically coherent, all topic specific words (indicated by their topic specific occurrence probability), should also co-occur within the same type of documents. 
+Alternatively, we can focus on semantic coherence and maximize the score of Deceaud. This approach assumes that in case of models, which are semantically coherent, all topic specific words (indicated by their topic specific occurrence probability), should also co-occur within the same type of documents.
 
--   *Output Interpretation*: Both measures provide guidance, but rarely indicate together the same solution. Here the Cao measure suggests the 12 topic solution, while the Deceaud indicator suggests a 8 topic solution (with the Cao also showing at least a local minimum for 8 topics). 
+-   *Output Interpretation*: Both measures provide guidance, but rarely indicate together the same solution. Here the Cao measure suggests the 12 topic solution, while the Deceaud indicator suggests a 8 topic solution (with the Cao also showing at least a local minimum for 8 topics).
 
--   *Practical Guidance*: We suggest that you do not only base your decision on these indicators, but also on the interpretability of the LDA results. 
+-   *Practical Guidance*: We suggest that you do not only base your decision on these indicators, but also on the interpretability of the LDA results.
 
-    -   Therefore, it often makes sense to subsequently estimate different LDA models (here between 8 and 12 topics) and to focus on the usability and interpretability of the output. 
-    
+    -   Therefore, it often makes sense to subsequently estimate different LDA models (here between 8 and 12 topics) and to **focus on the usability and interpretability of the output**.
+
     -   In the interest of space and time, we however suggest here to focus on the 8-topic solution and to continue with an 8-topic LDA as follows.
-    
-## Runing LDA
+
+## Running LDA
+
+### What LDA Does
+
+LDA is an unsupervised machine learning algorithm that discovers hidden **topics** in a collection of documents. It assumes each document is a mixture of topics, and each topic is a mixture of words.
 
 ```{r eval=TRUE, echo=TRUE}
+#| label: running-lda-topic-model
+library(topicmodels)
 ## Run LDA
+
 k = 8
 control_list_gibbs <- list(
   burnin = 2500, #set burn in
   iter = 5000, #set iterations
-  seed = 1500,
+  seed = 1500 + seq_len(5) - 1, # vector of 5 seeds
   nstart = 5, #set random starts at 5
   best = TRUE, # return the highest probability as the result
   alpha = 50 / k,
   delta = 0.1
 )
 
+# LDA from topicmodels package
 set.seed(1500)
-negative_lda <- LDA(
+negative_lda <- topicmodels::LDA(
   dtm.new.negative,
   k = 8,
   method = "Gibbs",
-  contol = control_list_gibbs
+  control = control_list_gibbs
 )
+negative_lda
 ```
-## Interpretation
 
-We can use the `control_list_gibbs` list to specify some of the LDA model characteristics such as the total number of iterations before the LDA stops or the seeding points for the random words. 
+### Arguments Explained
 
-For more details, we recommend checking the help file of the topicmodels package and the corresponding vignette. Our suggested starting points turn out to be good for ordinary models, but if you like to tweak the model further, you may try alternative alpha and delta values. 
+**`dtm.new.negative`** — the input data
 
-Once the model converged we can focus on the output and try to understand which topics the model identified. 
+-   A **Document-Term Matrix (DTM)** — rows are documents, columns are words, values are word counts
+
+-   The `negative` suffix suggests this is a subset of documents filtered by negative sentiment
+
+**`k = 8`** — number of topics
+
+-   Tells LDA to find exactly **8 latent topics** in the corpus
+
+-   Choosing `k` is a modeling decision — too few topics are too broad, too many are too granular
+
+**`method = "Gibbs"`** — the inference algorithm
+
+-   Uses **Gibbs Sampling**, a Markov Chain Monte Carlo (MCMC) method
+
+-   Iteratively reassigns each word to a topic based on probability
+
+-   Generally preferred over the default VEM method for better results, but slower
+
+**`control = control_list_gibbs`** — sampler settings
+
+-   A named list of hyperparameters controlling Gibbs sampling, typically including:
+
+| Parameter        | Meaning                                         |
+|------------------|-------------------------------------------------|
+| `seed`           | For reproducibility                             |
+| `burnin`         | Iterations to discard before sampling           |
+| `iter`           | Total number of iterations                      |
+| `thin`           | Keep every nth sample to reduce autocorrelation |
+| `alpha`          | Prior on document-topic distribution            |
+| `delta` / `beta` | Prior on topic-word distribution                |
+
+### Interpretation
+
+We can use the `control_list_gibbs` list to specify some of the LDA model characteristics such as the total number of iterations before the LDA stops or the seeding points for the random words.
+
+For more details, we recommend checking the help file of the **`topicmodels` package** and the corresponding vignette. Our suggested starting points turn out to be good for ordinary models, but if you like to tweak the model further, you may try alternative `alpha` and `delta` values.
+
+Once the model converged we can focus on the output and try to understand which topics the model identified.
+
+### Output Object
+
+```{r}
+#| label: negative-lda-output
+negative_lda
+
+# Top terms per topic
+terms(negative_lda)
+
+# Topic proportions per document
+topics(negative_lda)
+
+## Prepare Output
+tidy_negative_lda <- tidy(negative_lda)
+tidy_negative_lda
+```
+
+> The function returns an S4 object of class `LDA` containing:
+
+-   **`@beta`** — log probabilities of words per topic (topic × word matrix)
+
+-   **`@gamma`** — probabilities of topics per document (document × topic matrix)
+
+-   **`@terms`** — vocabulary (all unique words)
+
+-   **`@documents`** — document IDs
+
+-   **`@k`** — number of topics (8)
 
 ## Plotting Top Terms Per Topic
 
-To get there, we will first plot the top words per topic with the following code. The corresponding output is shown in Figure 7-13. Figure 7-14 shows the corresponding output for the positive reviews. The code for this LDA can be found in the markdown for this chapter.
+> To get there, we will first plot the top words per topic with the following code. The corresponding output is shown in Figure 7-13 (@fig-plot-lda-neg-reviews). Figure 7-14 shows the corresponding output for the positive reviews. The code for this LDA can be found in the markdown for this chapter.
 
 ```{r eval=TRUE, echo=TRUE}
-## Prepare Output
-tidy_negative_lda <- tidy(negative_lda)
-
-top_terms_negative <- tidy_negative_lda %>%
-  group_by(topic) %>%
-  top_n(10, beta) %>%
-  ungroup() %>%
+#| label: fig-plot-lda-neg-reviews
+#| fig-cap: "LDA Topic Modeling Result"
+top_terms_negative <- tidy_negative_lda |>
+  group_by(topic) |>
+  top_n(10, beta) |>
+  ungroup() |>
   arrange(topic, -beta)
 
 # Visualizing
-top_terms_negative %>%
-  mutate(term = reorder(term, beta)) %>%
-  group_by(topic, term) %>%
-  arrange(desc(beta)) %>%
-  ungroup() %>%
+top_terms_negative |>
+  mutate(term = reorder(term, beta)) |>
+  group_by(topic, term) |>
+  arrange(desc(beta)) |>
+  ungroup() |>
   mutate(
     term = factor(
       paste(term, topic, sep = "__"),
       levels = rev(paste(term, topic, sep = "__"))
     )
-  ) %>%
+  ) |>
   ggplot(aes(term, beta, fill = as.factor(topic))) +
   geom_col(show.legend = FALSE) +
   coord_flip() +
@@ -1172,17 +1625,22 @@ top_terms_negative %>%
 Looking at above's plots what kind of topics do you see here? Can you come up with meaningful topic names?
 :::
 
-# Airline Insights for Negative Reviews
+# Airline Insights for Negative Reviews {#sec-airline-insights-neg-reviews}
 
 ## Assignment of a topic to a Review
 
-To assess which topics are associated with a specific airline, we first need to assign to each review the different topic probabilities, which we can do with the following code.
+> To assess which topics are associated with a specific airline, we first need to assign to each review the **different topic probabilities**, which we can do with the following code.
 
 ```{r eval=TRUE, echo=TRUE}
+#| label: assign-topics-to-reviews
 ## Match Topics to Reviews
 
 Negative_Reviews.Corrected <- Negative_Reviews[ui, ]
-Negative_Reviews.wlables = cbind(Negative_Reviews.Corrected, negative_lda@gamma)
+dim(Negative_Reviews.Corrected) # 5977 x 12
+
+Negative_Reviews.wlables = cbind(Negative_Reviews.Corrected, negative_lda@gamma) # negative_lda@gamma: probabilities of topics per document (document × topic matrix): 5977 x 8
+
+dim(Negative_Reviews.wlables) # 5977 x  20
 
 Negative_Reviews.wlables |> as_tibble()
 
@@ -1198,16 +1656,19 @@ names(Negative_Reviews.wlables)[17] <- "Topic5"
 names(Negative_Reviews.wlables)[18] <- "Topic6"
 names(Negative_Reviews.wlables)[19] <- "Topic7"
 names(Negative_Reviews.wlables)[20] <- "Topic8"
+
+str(Negative_Reviews.wlables)
 ```
+
 ### Explanations
 
-We extract the topic probabilities (gammas) from the estimated LDA model and add them to the dataframe with the reviews. Finally, we rename the columns. 
+We extract the **topic probabilities** (gammas) from the estimated LDA model and add them to the dataframe with the reviews. Finally, we renamed the columns.
 
 ### Deciding a cut-off
 
-We can now count the occurrence of each topic in each review. To do so we have to think about, when we want to label a review, i.e. when we believe the topic probability to be high enough to say that a review contains a specific topic. 
-
-The advantage of this approach is that we allow reviews to contain more than one topic, compared to other common approaches, where one labels a review only with the topic with the highest probability.
+> We can now count the occurrence of each topic in each review. To do so we have to think about, when we want to label a review, i.e. when we believe the topic probability to be high enough to say that a review contains a specific topic.
+>
+> The advantage of this approach is that we **allow reviews to contain more than one topic**, compared to other common approaches, where one labels a review only with the topic with the highest probability.
 
 ::: callout-tip
 ### **Question 5**:
@@ -1215,11 +1676,11 @@ The advantage of this approach is that we allow reviews to contain more than one
 Which value should a topic probability in this case exceed to label a review with a topic?
 :::
 
-The cutoff value for topic probability is typically set based on the desired sensitivity of the topic labeling. A common choice is 0.25, as shown in the code snippet below.
+The **cutoff value for topic probability** is typically set based on the desired sensitivity of the topic labeling. *A common choice is 0.25*, as shown in the code snippet below.
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: assign-topics-to-a-review
-CutoffDf.Negative <- Negative_Reviews.wlables %>%
+CutoffDf.Negative <- Negative_Reviews.wlables |>
   filter(
     Topic1 >= 0.25 |
       Topic2 >= 0.25 |
@@ -1247,8 +1708,8 @@ CutoffDf.Negative |> glimpse()
 ```{r eval=TRUE, echo=TRUE}
 #| label: counting-topics-for-review
 # Counting
-TopicCount.Negative <- CutoffDf.Negative %>%
-  group_by(Airline) %>%
+TopicCount.Negative <- CutoffDf.Negative |>
+  group_by(Airline) |>
   summarize(
     Topic1 = sum(Topic1Count),
     Topic2 = sum(Topic2Count),
@@ -1262,13 +1723,16 @@ TopicCount.Negative <- CutoffDf.Negative %>%
 
 TopicCount.Negative
 ```
+
 ## Get Topic Share Per Airline
 
-> While the absolute numbers are already interesting, it may also make sense to look at the relative shares per airlines, which we obtain by dividing each value, by the sum of reviews per airline. We can finally achieve this with the following code.
+> While the absolute numbers are already interesting, it may also make sense to look at the **relative shares per airlines**, which we obtain by dividing each value, by the sum of reviews per airline. We can finally achieve this with the following code.
 
 ```{r eval=TRUE, echo=TRUE}
 #| label: calculate-topic-share
 TopicCount.Negative$sum = rowSums(TopicCount.Negative[, 2:9])
+
+TopicCount.Negative
 
 WeightedTopics.Negative = data.frame(
   Airline = TopicCount.Negative$Airline,
@@ -1282,6 +1746,7 @@ WeightedTopics.Negative = data.frame(
   Topic8 = round(TopicCount.Negative$Topic8 / TopicCount.Negative$sum, 2)
 )
 
+# Assigning labels to topics
 WeightedTopicsName.Negative = data.frame(
   Airline = TopicCount.Negative$Airline,
   Seating = round(TopicCount.Negative$Topic1 / TopicCount.Negative$sum, 2),
@@ -1305,8 +1770,8 @@ WeightedTopicsNameDF.Negative <- as.data.frame(t(WeightedTopicsName.Negative))
 
 WeightedTopicsNameDF.Negative
 ```
-::: callout-important
 
+::: callout-important
 ### **Question 6**:
 
 Looking at the topic shares of negative and positive reviews, and comparing these across airlines, which topics do you believe to be essentially important for high class airlines?
@@ -1327,7 +1792,10 @@ testcirc.Negative = data.frame(
     rownames(FinalCircDF.Negative),
     times = ncol(FinalCircDF.Negative)
   ),
-  to = rep(colnames(FinalCircDF.Negative), each = nrow(FinalCircDF.Negative)),
+  to = rep(
+    colnames(FinalCircDF.Negative),
+    each = nrow(FinalCircDF.Negative)
+  ),
   value = as.vector(FinalCircDF.Negative),
   stringsAsFactors = FALSE
 )
@@ -1360,12 +1828,13 @@ grid.col.negative = c(
 )
 
 circos.clear()
-par(cex = .6)
+par(cex = 0.8) # size of labels outside the circle
 chordDiagram(testcirc.Negative, grid.col = grid.col.negative, big.gap = 15)
 ```
 
 ::: callout-important
 ### **Question 7**
+
 What insights do you have from the chord diagram about airlines and negative topics?
 :::
 
@@ -1373,7 +1842,10 @@ What insights do you have from the chord diagram about airlines and negative top
 
 ::: callout-note
 ### **Tasks**
-For this section, repeat the topic modeling procedure for positive reviews this time. Answer Question 4 through Question 7 again for the positive reviews.
+
+This time, apply the topic modeling procedure explained in the previous two sections (@sec-topic-modeling-neg-reviews and @sec-airline-insights-neg-reviews) to **positive reviews**. 
+
+Answer Question 4 through Question 7 again for the positive reviews. Call them Question 4b, Question 5b, Question 6b, and Qustion 7b.
 :::
 
 # Saving and Loading Files
