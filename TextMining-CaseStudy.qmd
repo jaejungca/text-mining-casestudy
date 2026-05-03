@@ -602,7 +602,7 @@ VADER has a dictionary of over 7,500 words, each manually rated on a scale from 
 For any piece of text, VADER returns four scores:
 
 | Score | Meaning |
-|---------------------|---------------------------------------------------|
+|----------------------|--------------------------------------------------|
 | `pos` | Proportion of text that is positive (0 to 1) |
 | `neg` | Proportion of text that is negative (0 to 1) |
 | `neu` | Proportion of text that is neutral (0 to 1) |
@@ -1039,7 +1039,7 @@ For example:
 :::
 
 ```{r}
-#| label: build-dtm
+#| label: build-dtm-as-features
 # Build the Document-Term Matrix (DTM)
 dtm_train = create_dtm(it_train, vectorizer)
 ```
@@ -1061,7 +1061,7 @@ Regular regression (OLS) minimizes the sum of squared residuals. `glmnet` adds a
 -   The penalty is controlled by two parameters:
 
 | Parameter | Meaning |
-|-----------------------|-------------------------------------------------|
+|-----------------------|------------------------------------------------|
 | `lambda` (λ) | Overall regularization strength |
 | `alpha` (α) | Mix between L1 and L2 (0 = Ridge, 1 = Lasso, 0–1 = Elastic Net) |
 
@@ -1109,7 +1109,7 @@ $$
 #### Summary Table
 
 | Model | Penalty | $\alpha$ | Variable Selection |
-|----------------|------------------------|----------------|----------------|
+|-----------------|----------------------|-----------------|-----------------|
 | Ridge | $\lambda \sum \beta_j^2$ | 0 | No |
 | Lasso | $\lambda \sum |\beta_j|$ | 1 | Yes |
 | Elastic Net | $\lambda[(1-\alpha)\sum\beta_j^2 + \alpha\sum|\beta_j|]$ | $(0,1)$ | Partial |
@@ -1179,7 +1179,7 @@ In short, `glmnet` is the go-to tool in R when you need regularized regression f
 The other values in the function are **tuning parameters**, which can be ignored for now. In case you want to go in more detail here, we recommend to consult the vignette of the text2vec package.
 
 ```{r eval=TRUE, echo=FALSE}
-#| label: training-logistic-lasso
+#| label: training-logistic-regression-lasso
 library(glmnet)
 
 NFOLDS = 4
@@ -1188,7 +1188,7 @@ glmnet_classifier = cv.glmnet(
   y = train[['sentiment']],
   family = 'binomial', # Logistic regression for binary classification
   alpha = 1, # Lasso regularization
-  type.measure = "auc", #Uses AUC (Area Under the ROC Curve) for evaluation
+  type.measure = "auc", #Uses AUC (Area Under the ROC Curve) for evaluation instead of deviance
   nfolds = NFOLDS, # Number of cross-validation folds
   thresh = 1e-3, # Convergence threshold — stops when improvement is < 0.001
   maxit = 1e3 # Maximum 1000 iterations to prevent infinite loops
@@ -1257,11 +1257,118 @@ An AUC of **0.9187 is excellent** for sentiment classification:
 #### Which Lambda Should You Choose?
 
 | Choice | Use when... |
-|-----------------------|------------------------------------------------|
+|------------------------|------------------------------------------------|
 | `lambda.min` | You want **maximum predictive accuracy** and don't mind a more complex model |
 | `lambda.1se` | You prefer a **simpler, more interpretable** model with minimal accuracy loss |
 
 In practice `lambda.1se` is often recommended as it gives a more parsimonious model — dropping 184 words while only losing 0.003 AUC is a good trade-off.
+
+#### What is AUC?
+
+**AUC** stands for **Area Under the (ROC) Curve**. It is a performance metric for **binary classification models** (e.g., positive vs. negative sentiment).
+
+-   **ROC** = Receiver Operating Characteristic curve — a plot of:
+
+    -   **True Positive Rate (Sensitivity)** on the Y-axis
+
+    -   **False Positive Rate (1 − Specificity)** on the X-axis
+
+-   **AUC** = the area underneath that curve
+
+#### How to Interpret AUC
+
+| AUC Value   | Interpretation                 |
+|-------------|--------------------------------|
+| 1.00        | Perfect classifier             |
+| 0.90 – 0.99 | Excellent                      |
+| 0.80 – 0.89 | Good                           |
+| 0.70 – 0.79 | Fair                           |
+| 0.60 – 0.69 | Poor                           |
+| 0.50        | No better than random guessing |
+| \< 0.50     | Worse than random              |
+
+AUC essentially answers: **"What is the probability that the model ranks a randomly chosen positive case higher than a randomly chosen negative case?"**
+
+#### AUC in Regularized Regression (glmnet)
+
+In `glmnet`, when you run logistic regression (`family = "binomial"`) with cross-validation, you can use AUC as the evaluation metric:
+
+```r
+cv_model <- cv.glmnet(
+  x,
+  y,
+  family = "binomial",
+  type.measure = "auc", # use AUC instead of deviance
+  alpha = 1
+)
+
+plot(cv_model) # AUC vs. log(lambda)
+cv_model$lambda.min # lambda with highest AUC
+```
+
+##### Confusion Matrix
+
+![](images/paste-2.png)
+
+-   **TP** — model predicted positive, review was actually positive. A correctly identified happy customer.
+ 
+-   **FP** — model predicted positive, but review was actually negative (0). A complaint wrongly flagged as praise — a Type I error.
+   
+-   **FN** — model predicted negative, but review was actually positive (1). A happy customer that the model missed — a Type II error.
+   
+-   **TN** — model predicted negative, review was actually negative. A correctly identified complaint.
+
+##### AUC (Area under the ROC Curve)
+
+![](images/paste-4.png)Here is what each element on the chart means:
+
+-   **Y-axis — True Positive Rate (TPR):** the proportion of actual **positives (1)** — i.e. positive reviews — that the model correctly identifies as positive. Formally: TP / (TP + FN) = 45 / (45 + 10) = **82%**. Also called **Sensitivity** or **Recall**.
+  
+-   **X-axis — False Positive Rate (FPR):** the proportion of actual **negatives (0)** — i.e. negative reviews — that the model wrongly classifies as -   positive. Formally: FP / (FP + TN) = 8 / (8 + 37) = **18%**. Also called **1 − Specificity**.
+   
+-   **The shaded green area** is the AUC itself — the bigger the area, the better the model separates the two classes.
+   
+-   **The diagonal dotted line** is the baseline — a model that just randomly guesses. Any useful model must curve above it. In the airline reviews -   context, an AUC of 0.93 would mean the Lasso model is very confidently -   distinguishing negative from positive reviews based on word patterns alone.
+
+##### **ROC** (**Receiver Operating Characteristic**)
+
+The name actually comes from **signal detection theory** developed during World War II, when radar operators needed to distinguish real enemy signals from noise. Engineers used this curve to measure how well a receiver (radar operator) could detect a true signal — hence "Receiver Operating Characteristic."
+
+###### What each word means in a modern ML context
+
+-   **Receiver** — originally the radar operator or detection system; today it refers to the classifier/model doing the detecting.
+
+-   **Operating** — refers to the operating threshold — the cutoff point the model uses to decide "positive" vs "negative." As you shift that threshold up or down, the curve traces out different TPR/FPR combinations.
+
+-   **Characteristic** — the performance characteristic of the model across all possible thresholds, not just one fixed point.
+
+#### Why "across all thresholds" matters
+
+A single confusion matrix (like the one we built) only shows performance at **one specific threshold** — typically 0.5. The ROC curve asks: *what happens to TPR and FPR as we slide that threshold from 0 to 1?*
+
+| Threshold | Effect |
+|----|----|
+| Very low (e.g. 0.1) | Model predicts positive for almost everything → high TPR but also high FPR |
+| Very high (e.g. 0.9) | Model predicts positive only when very confident → low FPR but also low TPR |
+| Optimal | The point on the curve closest to the top-left corner |
+
+The AUC then summarises the model's performance across **all** those thresholds in a single number — which is why it is more informative than accuracy at any one threshold alone.
+
+##### Thresholds
+
+The thresholds are **not explicitly shown** on the current chart — each point on the curve corresponds to a different threshold, but the threshold values themselves are invisible. The chart below shows them.
+
+![](images/paste-5.png)
+
+Now each dot on the curve shows its corresponding threshold value. Here is what the thresholds mean in practice:
+
+-   **High threshold (t = 0.90, 0.95)** — the model only predicts "positive review" when it is very confident. This keeps FPR low (few false alarms) but also misses more true positives, so TPR is lower. These points sit in the bottom-left of the curve.
+
+-   **Low threshold (t = 0.10, 0.05)** — the model predicts "positive" very liberally. It catches almost all true positives (high TPR) but also generates many false positives (high FPR). These points sit in the top-right of the curve.
+
+-   **Optimal threshold (orange dot)** — the point geometrically closest to the top-left corner, balancing TPR and FPR. In `glmnet` with `cv.glmnet()`, you would use this threshold when applying the model to new airline reviews.
+
+The key insight is that **AUC summarises all these threshold trade-offs in one number** — so you do not have to commit to a single threshold just to evaluate the model.
 
 ## Test Accuracy
 
@@ -1843,7 +1950,7 @@ What insights do you have from the chord diagram about airlines and negative top
 ::: callout-note
 ### **Tasks**
 
-This time, apply the topic modeling procedure explained in the previous two sections (@sec-topic-modeling-neg-reviews and @sec-airline-insights-neg-reviews) to **positive reviews**. 
+This time, apply the topic modeling procedure explained in the previous two sections (@sec-topic-modeling-neg-reviews and @sec-airline-insights-neg-reviews) to **positive reviews**.
 
 Answer Question 4 through Question 7 again for the positive reviews. Call them Question 4b, Question 5b, Question 6b, and Qustion 7b.
 :::
