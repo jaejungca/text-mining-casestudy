@@ -7,7 +7,7 @@ format:
   html:
     theme: minty
     toc: true
-    toc-depth: 3
+    toc-depth: 4
     toc-expand: 1
     toc-location: right-body
     number-sections: true
@@ -602,7 +602,7 @@ VADER has a dictionary of over 7,500 words, each manually rated on a scale from 
 For any piece of text, VADER returns four scores:
 
 | Score | Meaning |
-|----------------------|--------------------------------------------------|
+|-------------------------|----------------------------------------------|
 | `pos` | Proportion of text that is positive (0 to 1) |
 | `neg` | Proportion of text that is negative (0 to 1) |
 | `neu` | Proportion of text that is neutral (0 to 1) |
@@ -1061,7 +1061,7 @@ Regular regression (OLS) minimizes the sum of squared residuals. `glmnet` adds a
 -   The penalty is controlled by two parameters:
 
 | Parameter | Meaning |
-|-----------------------|------------------------------------------------|
+|--------------------------|----------------------------------------------|
 | `lambda` (λ) | Overall regularization strength |
 | `alpha` (α) | Mix between L1 and L2 (0 = Ridge, 1 = Lasso, 0–1 = Elastic Net) |
 
@@ -1109,7 +1109,7 @@ $$
 #### Summary Table
 
 | Model | Penalty | $\alpha$ | Variable Selection |
-|-----------------|----------------------|-----------------|-----------------|
+|------------------|-------------------|------------------|------------------|
 | Ridge | $\lambda \sum \beta_j^2$ | 0 | No |
 | Lasso | $\lambda \sum |\beta_j|$ | 1 | Yes |
 | Elastic Net | $\lambda[(1-\alpha)\sum\beta_j^2 + \alpha\sum|\beta_j|]$ | $(0,1)$ | Partial |
@@ -1178,7 +1178,7 @@ In short, `glmnet` is the go-to tool in R when you need regularized regression f
 
 The other values in the function are **tuning parameters**, which can be ignored for now. In case you want to go in more detail here, we recommend to consult the vignette of the text2vec package.
 
-```{r eval=TRUE, echo=FALSE}
+```{r}
 #| label: training-logistic-regression-lasso
 library(glmnet)
 
@@ -1194,49 +1194,58 @@ glmnet_classifier = cv.glmnet(
   maxit = 1e3 # Maximum 1000 iterations to prevent infinite loops
 )
 
+glmnet_classifier
+
+plot(glmnet_classifier)
+
+glmnet_classifier$lambda.min #lambda with highest AUC
+
 print(paste("max AUC =", round(max(glmnet_classifier$cvm), 4)))
 ```
 
 ### Output Interpretation
 
 ```         
-cv.glmnet(x = dtm_train, y = train[["sentiment"]], type.measure = "auc",      nfolds = NFOLDS, family = "binomial", alpha = 1, thresh = 0.001,      maxit = 1000) 
+quCall:  cv.glmnet(x = dtm_train, y = train[["sentiment"]], type.measure = "auc",      nfolds = NFOLDS, family = "binomial", alpha = 1, thresh = 0.001,      maxit = 1000) 
 
 Measure: AUC 
 
       Lambda Index Measure       SE Nonzero
-min 0.002320    42  0.9187 0.002747     681
-1se 0.005359    33  0.9160 0.002721     497
+min 0.002057    43  0.9203 0.003530     721
+1se 0.006893    30  0.9169 0.003592     486
+
+[1] 0.002056543
+[1] "max AUC = 0.9203"
 ```
 
 #### Row 1: `min` — Best Raw Performance
 
 ```         
-Lambda = 0.002320, Index = 42, AUC = 0.9187, SE = 0.002747, Nonzero = 681
+Lambda = 0.002057, Index = 43, AUC = 0.9203, SE = 0.003530, Nonzero = 721
 ```
 
--   This lambda value (0.002320) produced the **highest average AUC of 0.9187** across the 4 folds
+-   This lambda value (0.002057) produced the **highest average AUC of 0.9203** across the 4 folds
 
--   It uses **681 words** (non-zero coefficients) from the vocabulary as predictors
+-   It uses **721 words** (non-zero coefficients) from the vocabulary as predictors
 
--   In other words, 681 words were found useful enough to contribute to the sentiment prediction
+-   In other words, 721 words were found useful enough to contribute to the sentiment prediction
 
 #### Row 2: `1se` — Simpler, More Regularized Model
 
 ```         
-Lambda = 0.005359, Index = 33, AUC = 0.9160, SE = 0.002721, Nonzero = 497
+Lambda = 0.006893, Index = 30, AUC = 0.9169, SE = 0.003592, Nonzero = 486
 ```
 
--   This is the **largest lambda** whose AUC is within **1 standard error** of the best AUC (0.9187 - 0.002747 ≈ 0.916)
+-   This is the **largest lambda** whose AUC is within **1 standard error** of the best AUC (0.9203 - 0.003530 ≈ 0.917)
 
--   It uses only **497 words** — a simpler model with 184 fewer predictors
+-   It uses only **486 words** — a simpler model with 235 fewer predictors
 
--   The AUC drop is tiny (0.9187 → 0.9160) but the model is meaningfully simpler
+-   The AUC drop is tiny (0.9203 → 0.9169) but the model is meaningfully simpler
 
 #### The SE Column
 
 ```         
-SE = 0.002747
+SE = 0.003530
 ```
 
 -   This is the **standard error of the AUC** across the 4 cross-validation folds
@@ -1257,11 +1266,11 @@ An AUC of **0.9187 is excellent** for sentiment classification:
 #### Which Lambda Should You Choose?
 
 | Choice | Use when... |
-|------------------------|------------------------------------------------|
+|--------------------------|----------------------------------------------|
 | `lambda.min` | You want **maximum predictive accuracy** and don't mind a more complex model |
 | `lambda.1se` | You prefer a **simpler, more interpretable** model with minimal accuracy loss |
 
-In practice `lambda.1se` is often recommended as it gives a more parsimonious model — dropping 184 words while only losing 0.003 AUC is a good trade-off.
+In practice `lambda.1se` is often recommended as it gives a more parsimonious model — dropping 235 words while only losing 0.003 AUC is a good trade-off.
 
 #### What is AUC?
 
@@ -1273,19 +1282,23 @@ In practice `lambda.1se` is often recommended as it gives a more parsimonious mo
 
     -   **False Positive Rate (1 − Specificity)** on the X-axis
 
--   **AUC** = the area underneath that curve
+-   **AUC** = Operatoinally, it is the area underneath that curve, but Conceptually, AUC answers one fundamental question:
+
+    > **"If I randomly pick one positive review and one negative review, what is the probability that my model correctly ranks the positive one higher than the negative one?"**
+
+    An AUC of 0.93 means there is a **93% chance** the model assigns a higher predicted probability to a positive review than to a negative one. It is a measure of **separability** — how well the model can distinguish between the two classes across all possible thresholds.
 
 #### How to Interpret AUC
 
-| AUC Value   | Interpretation                 |
-|-------------|--------------------------------|
-| 1.00        | Perfect classifier             |
-| 0.90 – 0.99 | Excellent                      |
-| 0.80 – 0.89 | Good                           |
-| 0.70 – 0.79 | Fair                           |
-| 0.60 – 0.69 | Poor                           |
-| 0.50        | No better than random guessing |
-| \< 0.50     | Worse than random              |
+| AUC Value | Interpretation |
+|-----------------------|------------------------------------------------|
+| 1.00 | Perfect classifier - curve hugs the top-left corner completely |
+| 0.90 – 0.99 | Excellent - large shaded area, strong separation |
+| 0.80 – 0.89 | Good |
+| 0.70 – 0.79 | Fair |
+| 0.60 – 0.69 | Poor |
+| 0.50 | Useless - Curve is the diagonal, no better than random guessing |
+| \< 0.50 | Worse than random |
 
 AUC essentially answers: **"What is the probability that the model ranks a randomly chosen positive case higher than a randomly chosen negative case?"**
 
@@ -1293,7 +1306,7 @@ AUC essentially answers: **"What is the probability that the model ranks a rando
 
 In `glmnet`, when you run logistic regression (`family = "binomial"`) with cross-validation, you can use AUC as the evaluation metric:
 
-```r
+``` r
 cv_model <- cv.glmnet(
   x,
   y,
@@ -1311,11 +1324,11 @@ cv_model$lambda.min # lambda with highest AUC
 ![](images/paste-2.png)
 
 -   **TP** — model predicted positive, review was actually positive. A correctly identified happy customer.
- 
+
 -   **FP** — model predicted positive, but review was actually negative (0). A complaint wrongly flagged as praise — a Type I error.
-   
+
 -   **FN** — model predicted negative, but review was actually positive (1). A happy customer that the model missed — a Type II error.
-   
+
 -   **TN** — model predicted negative, review was actually negative. A correctly identified complaint.
 
 ##### AUC (Area under the ROC Curve)
@@ -1323,12 +1336,12 @@ cv_model$lambda.min # lambda with highest AUC
 ![](images/paste-4.png)Here is what each element on the chart means:
 
 -   **Y-axis — True Positive Rate (TPR):** the proportion of actual **positives (1)** — i.e. positive reviews — that the model correctly identifies as positive. Formally: TP / (TP + FN) = 45 / (45 + 10) = **82%**. Also called **Sensitivity** or **Recall**.
-  
--   **X-axis — False Positive Rate (FPR):** the proportion of actual **negatives (0)** — i.e. negative reviews — that the model wrongly classifies as -   positive. Formally: FP / (FP + TN) = 8 / (8 + 37) = **18%**. Also called **1 − Specificity**.
-   
+
+-   **X-axis — False Positive Rate (FPR):** the proportion of actual **negatives (0)** — i.e. negative reviews — that the model wrongly classifies as - positive. Formally: FP / (FP + TN) = 8 / (8 + 37) = **18%**. Also called **1 − Specificity**.
+
 -   **The shaded green area** is the AUC itself — the bigger the area, the better the model separates the two classes.
-   
--   **The diagonal dotted line** is the baseline — a model that just randomly guesses. Any useful model must curve above it. In the airline reviews -   context, an AUC of 0.93 would mean the Lasso model is very confidently -   distinguishing negative from positive reviews based on word patterns alone.
+
+-   **The diagonal dotted line** is the baseline — a model that just randomly guesses. Any useful model must curve above it. In the airline reviews - context, an AUC of 0.93 would mean the Lasso model is very confidently - distinguishing negative from positive reviews based on word patterns alone.
 
 ##### **ROC** (**Receiver Operating Characteristic**)
 
@@ -1347,7 +1360,7 @@ The name actually comes from **signal detection theory** developed during World 
 A single confusion matrix (like the one we built) only shows performance at **one specific threshold** — typically 0.5. The ROC curve asks: *what happens to TPR and FPR as we slide that threshold from 0 to 1?*
 
 | Threshold | Effect |
-|----|----|
+|------------------------------------|------------------------------------|
 | Very low (e.g. 0.1) | Model predicts positive for almost everything → high TPR but also high FPR |
 | Very high (e.g. 0.9) | Model predicts positive only when very confident → low FPR but also low TPR |
 | Optimal | The point on the curve closest to the top-left corner |
@@ -1370,6 +1383,22 @@ Now each dot on the curve shows its corresponding threshold value. Here is what 
 
 The key insight is that **AUC summarises all these threshold trade-offs in one number** — so you do not have to commit to a single threshold just to evaluate the model.
 
+#### Accuracy vs. AUC
+
+How are they different?
+
+![](images/paste-6.png)
+
+The most important distinction is this:
+
+> **Accuracy** is a snapshot at one threshold. It answers "how often was the model right?" using the confusion matrix at a fixed cutoff (usually 0.5). In our airline example, 82 out of 100 reviews were correctly classified — but this number would change if you shifted the threshold.
+>
+> **AUC** is a full portrait across all thresholds. It answers "how good is the model at ranking?" without committing to any cutoff. The 0.93 AUC means the model's predicted probabilities are well-ordered — positive reviews consistently score higher than negative ones.
+
+The hypothetical in the card is the classic trap. If 90% of your airline reviews happen to be positive, a completely lazy model that always predicts "positive" achieves 90% accuracy — which sounds great but is completely useless. AUC immediately exposes it as 0.50, no better than a coin flip.
+
+In practice, use AUC to select and compare models during training, then report accuracy once you have settled on your operational threshold for classifying incoming reviews.
+
 ## Test Accuracy
 
 To assess the accuracy of our model, we can again make a prediction for our test data set and see how many correctly predicted titles we get. We achieve this with the following code.
@@ -1389,10 +1418,10 @@ glmnet:::auc(as.factor(test$sentiment), preds)
 
 ```         
 > glmnet:::auc(as.factor(test$sentiment), preds)
-[1] 0.9271209
+[1] 0.9123229
 ```
 
-> The AUC produced here is the **test AUC** — the real-world performance of your model on unseen data. Comparing it to the cross-validated AUC from training (`0.9187`) tells you:
+> The AUC produced here is the **test AUC** — the real-world performance of your model on unseen data. Comparing it to the cross-validated AUC from training (0.9203) tells you:
 
 | Scenario             | Meaning                                        |
 |----------------------|------------------------------------------------|
@@ -1400,7 +1429,7 @@ glmnet:::auc(as.factor(test$sentiment), preds)
 | Test AUC \<\< CV AUC | Model may be **overfitting** the training data |
 | Test AUC \>\> CV AUC | Unlikely — could suggest data leakage          |
 
-The output indicates that we reach an accuracy of more than 91% which is already impressive and indicates that our model is doing a great job in predicting sentiment.
+The output indicates that we reach an accuracy of more than 92% which is already impressive and indicates that our model is doing a great job in predicting sentiment.
 
 ## Applying Model to New Texts
 
